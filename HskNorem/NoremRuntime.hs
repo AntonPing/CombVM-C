@@ -1,4 +1,4 @@
-module Compiler (module Compiler) where
+module NoremRuntime (module NoremRuntime) where
 import Prelude
 import Text.Parsec.Prim
 import Text.Parsec.Combinator
@@ -27,8 +27,7 @@ data Term =
       Var String
     | Abs String Term
     | App Term Term
-    | I | K
-    | S | B | C 
+    | I | K | S | B | C 
     | S' | B' | C'
     deriving (Eq)
 
@@ -42,7 +41,7 @@ instance Show Term where
     show B = "B"
     show C = "C"
     show S' = "S'"
-    show B' = "B'"
+    show B' = "B*"
     show C' = "C'"
 
 isPureLamb :: Term -> Bool
@@ -50,29 +49,24 @@ isPureLamb (Var x) = True
 isPureLamb (Abs x t) = isPureLamb t
 isPureLamb (App t1 t2) =
     isPureLamb t1 && isPureLamb t2
-isPureLamb S = False
-isPureLamb K = False
-isPureLamb I = False 
-isPureLamb B = False
-isPureLamb C = False
+isPureLamb _ = False
 
 isPureComb :: Term -> Bool 
 isPureComb (Var x) = False 
 isPureComb (Abs x t) = False
 isPureComb (App t1 t2) =
     isPureComb t1 && isPureComb t2
-isPureComb S = True
-isPureComb K = True 
-isPureComb I = True  
-isPureComb B = True 
-isPureComb C = True 
+isPureComb _ = True 
 
+{-
 normal :: Term -> Bool
 normal (Var _) = True
 normal (Abs _ _) = True
 normal (App (Var _) _) = True
 normal (App (Abs _ _) _) = False
 normal (App t@(App _ _) _) = normal t
+normal (App t@(App _ _) _) = normal t
+-}
 
 isFree :: String -> Term -> Bool
 isFree v (Var x) = x /= v

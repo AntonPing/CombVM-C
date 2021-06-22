@@ -1,17 +1,18 @@
 -- Functional parsing library from chapter 13 of Programming in Haskell,
 -- Graham Hutton, Cambridge University Press, 2016.
 module NoremParser (module NoremParser) where
-
+import NoremRuntime
 import Prelude hiding (error)
 import Control.Applicative
 import Data.Char
-import Compiler
+
 
 -- Basic definitions
 
 data Result a =
      Ok a
    | Err String
+   deriving (Show,Eq)
 
 newtype Parser a = P { run :: String -> (String, Result a)}
 
@@ -54,10 +55,10 @@ instance Alternative Parser where
 error :: String -> Parser a
 error e = P $ \s -> (s, Err e)
 
-parEOF :: Parser ()
+parEOF :: Parser Char
 parEOF = P $ \s -> case s of
    (x:xs) -> (s, Err "eof not match!") 
-   []     -> ([], Ok ()) 
+   []     -> ([], Ok '\n') 
 
 try :: Parser a -> Parser a
 try p = P $ \s ->
@@ -131,13 +132,6 @@ parSymb = do
    xs <- some parLegal
    return xs
 
-word :: Parser a -> Parser a
-word p = do
-   eatSpace
-   v <- p
-   try parSpace
-   return v
-
 parNat :: Parser Int
 parNat = do
    xs <- some parDigit
@@ -151,9 +145,16 @@ parInt = do
    <|>
       parNat
 
+word :: Parser a -> Parser a
+word p = do
+   eatSpace
+   v <- p
+   eatSpace
+   return v
+
 termFold :: Term -> Parser Term
 termFold fun = do
-      arg <- word parTerm
+      arg <- parTerm
       termFold (App fun arg)
    <|> do
       parChar ';'
@@ -164,9 +165,8 @@ termFold fun = do
 
 termList :: Parser Term
 termList = do
-   app0 <- word parTerm
+   app0 <- parTerm
    termFold app0
-
 
 parTerm :: Parser Term
 parTerm = do
@@ -184,6 +184,7 @@ parTerm = do
       parChar ')'
       return t
 
+parMain :: Parser Term
 parMain = do
       t <- termList
       eatSpace
