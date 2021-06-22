@@ -13,12 +13,12 @@ data Result a =
      Ok a
    | Err String
 
-newtype Parser a = P { parse :: String -> (String, Result a)}
+newtype Parser a = P { run :: String -> (String, Result a)}
 
 instance Functor Parser where
    -- fmap :: (a -> b) -> Parser a -> Parser b
    fmap f p = P $ \s ->
-      case parse p s of
+      case run p s of
          (rst, Ok v) -> (rst,Ok (f v))
          (rst, Err e) -> (rst,Err e)
 
@@ -28,211 +28,179 @@ instance Applicative Parser where
 
    -- <*> :: Parser (a -> b) -> Parser a -> Parser b
    pf <*> px = P $ \s ->
-      case parse pf s of
-         (rst, Ok vf) -> parse (fmap vf px) rst
+      case run pf s of
+         (rst, Ok vf) -> run (fmap vf px) rst
          (rst, Err e) -> (rst, Err e)
 
 instance Monad Parser where
    -- (>>=) :: Parser a -> (a -> Parser b) -> Parser b
    p >>= f = P $ \s ->
-      case parse p s of
-         (rst, Ok v) -> parse (f v) rst
+      case run p s of
+         (rst, Ok v) -> run (f v) rst
          (rst, Err e) -> (rst, Err e)
+   -- return :: a -> Parser a
+   return v = P (\s -> (s, Ok v))
 
--- Making choices
 instance Alternative Parser where
    -- empty :: Parser a
    empty = P $ \s -> (s, Err "empty!")
    -- (<|>) :: Parser a -> Parser a -> Parser a
    p <|> q = P $ \s ->
-      case parse p s of
-         (_, Err e) -> parse q s
+      case run p s of
+         (_, Err e) -> run q s
          (rst, Ok v) -> (rst, Ok v)
 
+-- return have already defined
 error :: String -> Parser a
 error e = P $ \s -> (s, Err e)
 
-anyChar :: Parser Char
-anyChar = P $ \s -> case s of
-   []     -> ([], Err "can't get char!") 
-   (x:xs) -> (xs, Ok x)
-
-eof :: Parser ()
-eof = P $ \s -> case s of
+parEOF :: Parser ()
+parEOF = P $ \s -> case s of
    (x:xs) -> (s, Err "eof not match!") 
    []     -> ([], Ok ()) 
 
-space :: Parser () 
-space = P $ \s -> case s of
-   ('\n':xs) -> (xs, Ok ())
-   ('\t':xs) -> (xs, Ok ())
-   ('\r':xs) -> (xs, Ok ())
-   (' ':xs) ->  (xs, Ok ())
-   _     -> (s, Err "space not match!")
-
 try :: Parser a -> Parser a
 try p = P $ \s ->
-   case parse p s of
+   case run p s of
       (rst, Ok v) -> (s, Ok v)
       (rst, Err e) -> (s, Err e)
 
-sat :: (Char -> Bool) -> Parser Char
-sat p = do
-   x <- anyChar
-   if p x then return x
-   else error "not sat"
+satisfy :: Bool -> Parser ()
+satisfy p = if p
+   then P (\s -> (s,Ok () ))
+   else P (\s -> (s,Err "not satisfy"))
 
-char :: Char -> Parser Char
-char c = sat (== c)
+readChar :: Parser Char
+readChar = P $ \s -> case s of
+   []     -> ([], Err "can't get char!") 
+   (x:xs) -> (xs, Ok x)
 
-digit :: Parser Char
-digit = sat isDigit
+satChar :: (Char -> Bool) -> Parser Char
+satChar p = do
+   c <- readChar
+   satisfy (p c)
+   return c
 
-lower :: Parser Char
-lower = sat isLower
+parChar :: Char -> Parser Char
+parChar c = satChar (== c)
 
-upper :: Parser Char
-upper = sat isUpper
+parString :: String -> Parser String
+parString s =
+   let fs = fmap parChar s
+       mn = foldl1 (>>) fs in
+   mn >> return s
 
-letter :: Parser Char
-letter = sat isAlpha
+parSpace :: Parser Char
+parSpace = satChar isSpace
 
-alphanum :: Parser Char
-alphanum = sat isAlphaNum
+parDigit :: Parser Char
+parDigit = satChar isDigit
+
+parLower :: Parser Char
+parLower = satChar isLower
+
+parUpper :: Parser Char
+parUpper = satChar isUpper
+
+parLetter :: Parser Char
+parLetter = satChar isAlpha
+
+parAlphaNum :: Parser Char
+parAlphaNum = satChar isAlphaNum
 
 isLegal :: Char -> Bool
 isLegal x = not $ x `elem`
    "\n\t\r (){}[],.;:\"\\"
 
-legal :: Parser Char
-legal = sat isLegal
-
-string :: String -> Parser String
-string []     = return []
-string (x:xs) = do
-   char x
-   string xs
-   return (x:xs)
+parLegal :: Parser Char
+parLegal = satChar isLegal
 
 eatSpace :: Parser ()
 eatSpace = do
-      many space
-      return ()
-   <|>
-      return ()
+   many parSpace
+   return ()
 
-ident :: Parser String
-ident = do x  <- lower
-           xs <- many alphanum
-           return (x:xs)
+parIdent :: Parser String
+parIdent = do
+   x  <- parLower
+   xs <- many parAlphaNum
+   return (x:xs)
 
-nat :: Parser Int
-nat = do xs <- some digit
-         return (read xs)
-
-int :: Parser Int
-int = do char '-'
-         n <- nat
-         return (-n)
-       <|> nat
-
-
-token :: Parser a -> Parser a
-token p = do eatSpace
-             v <- p
-             peekSpace
-             return v
-
-identifier :: Parser String
-identifier = token ident
-
-natural :: Parser Int
-natural = token nat
-
-integer :: Parser Int
-integer = token int
-
-match :: String -> Parser String
-match xs = token (string xs)
-
-symbol :: Parser String
-symbol = do
-   xs <- some legal
+parSymb :: Parser String
+parSymb = do
+   xs <- some parLegal
    return xs
 
-peek :: Char -> Parser Char
-peek x = try $ char x
+word :: Parser a -> Parser a
+word p = do
+   eatSpace
+   v <- p
+   try parSpace
+   return v
 
-peekSpace :: Parser Char
-peekSpace = try $ sat isSpace
+parNat :: Parser Int
+parNat = do
+   xs <- some parDigit
+   return (read xs)
 
-scomb :: Parser Term
-scomb = do
-   char 'S'
-   return S
-
-kcomb :: Parser Term
-kcomb = do
-   char 'K'
-   return K
-
-icomb :: Parser Term
-icomb = do
-   char 'I'
-   return I
+parInt :: Parser Int
+parInt = do
+      parChar '-'
+      n <- parNat
+      return (-n)
+   <|>
+      parNat
 
 termFold :: Term -> Parser Term
 termFold fun = do
-      eatSpace
-      arg <- term
-      eatSpace
+      arg <- word parTerm
       termFold (App fun arg)
    <|> do
-      eatSpace
-      char ';'
+      parChar ';'
       arg <- termList
       return (App fun arg)
    <|>
       return fun
 
-
 termList :: Parser Term
 termList = do
-   app0 <- term
-   result <- termFold app0
-   return result
+   app0 <- word parTerm
+   termFold app0
 
-
-term :: Parser Term
-term = do
-      space
-      term
-   <|> do
-      x <- symbol
-      return (Var x)
-   <|> do
-      char '\\'
-      x <- symbol
-      char '.'
-      t <- term
-      return (Abs x t)
-   <|> do
-      char '('
-      result <- termList
-      char ')'
-      return result
-   <|> scomb <|> kcomb <|> icomb
 
 parTerm :: Parser Term
 parTerm = do
-   app0 <- term
-   result <- termFold app0
-   eof
-   return result
+      x <- word parSymb
+      return (Var x)
+   <|> do
+      parChar '\\'
+      x <- parSymb
+      parChar '.'
+      t <- parTerm
+      return (Abs x t)
+   <|> do
+      parChar '('
+      t <- termList
+      parChar ')'
+      return t
 
-parseTerm :: String -> Maybe Term
-parseTerm str =
-   let result = parse parTerm str in
-   case result of
+parMain = do
+      t <- termList
+      eatSpace
+      parEOF
+      return t
+   <|> do
+      parChar '('
+      t <- termList
+      parChar ')'
+      eatSpace
+      parEOF
+      return t
+
+
+parse :: String -> Maybe Term
+parse str =
+   case run parMain str of
       (_, Ok t) -> Just t
       (_, Err e) -> Nothing
+   
