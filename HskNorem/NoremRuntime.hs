@@ -22,19 +22,38 @@ instance Gen Term where
     gen C' = "Cp"
 -}
 
+data Uniop =
+      FNot
+    deriving (Eq,Show)
+
+data Binop =
+      FAdd
+    deriving (Eq,Show)
+
+data Data =
+      DInt Int
+    | DReal Double
+    | DBool Bool
+    | DChar Char
+    deriving (Eq,Show)
 
 data Term =
       Var String
     | Abs String Term
     | App Term Term
-    | I | K | S | B | C 
-    | S' | B' | C'
+    | Uniop Uniop
+    | Binop Binop
+    | Data Data
+    | I | K | S | B | C | S' | B' | C'
     deriving (Eq)
 
 instance Show Term where
     show (Var x) = x
     show (Abs x t) = "λ." ++ x ++ " " ++ show t
     show (App t1 t2) = "(" ++ show t1 ++ " " ++ show t2 ++ ")"
+    show (Uniop f) = show (Uniop f)
+    show (Binop f) = show (Binop f)
+    show (Data d) = show (Data d)
     show I = "I"
     show K = "K"
     show S = "S"
@@ -43,6 +62,26 @@ instance Show Term where
     show S' = "S'"
     show B' = "B*"
     show C' = "C'"
+
+runUniop :: Uniop -> Data -> Term
+runUniop FNot (DBool p) = Data (DBool (not p))
+runUniop _ d = trace "panic!" Data d
+
+runBinop :: Binop -> Data -> Data -> Term
+runBinop FAdd (DInt a) (DInt b) = Data (DInt (a + b))
+runBinop FAdd (DInt a) (DReal b) = Data (DReal (fromIntegral a + b))
+runBinop FAdd (DReal a) (DInt b) = Data (DReal (a + fromIntegral b))
+runBinop FAdd (DReal a) (DReal b) = Data (DReal (a + b))
+runBinop _ d1 d2 = trace "panic!" (App (Data d1) (Data d2))
+
+step :: [Term] -> [Term]
+step (App t1 t2:rst) = step (t1:t2:rst)
+step (I:x:rst) = step (x:rst)
+step (K:x:y:rst) = step (x:rst)
+step (S:f:g:x:rst) = step (f:x:App g x:rst)
+step (Uniop f:Data x:rst) = step (runUniop f x: rst)
+step (Binop f:Data x:Data y:rst) = step (runBinop f x y: rst)
+step rst = trace "terminate!" rst
 
 isPureLamb :: Term -> Bool
 isPureLamb (Var x) = True 
@@ -78,8 +117,8 @@ compile :: Term -> Term
 compile (Var x) = Var x
 compile (Abs x t)
     | isFree x t = App K t
-compile (Abs x (Var y)) = -- x /= y since x is not free
-    I
+compile (Abs x (Var y)) =
+    I -- x /= y since x is not free
 compile (Abs x (Abs y t)) =
     Abs x $ compile (Abs y t)
 compile (Abs x (App t1 t2)) =
@@ -140,4 +179,4 @@ testComb = iterTrace compile test
 
 testOpt = iterTrace optComb testComb
 
-result = iterTrace reduceComb $ App (App testComb (Var "1")) (Var "2")
+result = iterTrace reduceComb $ App (App testOpt (Var "1")) (Var "2")
