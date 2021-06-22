@@ -152,7 +152,6 @@ let t2 = App(Var "y",Var "2")
 
 let () = print_endline (if isFree "y" swap then "T" else "F")
 let test = App(swap,t2)
-
 let test2 = App(lamb2Comb swap,t2)
 
 let () = begin
