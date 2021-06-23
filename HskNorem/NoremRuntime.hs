@@ -53,7 +53,7 @@ instance Show Term where
     show (App t1 t2) = "(" ++ show t1 ++ " " ++ show t2 ++ ")"
     show (Uniop f) = show f
     show (Binop f) = show f
-    show (Data d) = show (Data d)
+    show (Data d) = show d
     show I = "I"
     show K = "K"
     show S = "S"
@@ -78,16 +78,24 @@ runBinop _ d1 d2 = trace "panic!" (App (Data d1) (Data d2))
 
 
 run :: Term -> Term
-run t = foldl1 App (step [t])
+run t =
+    let t' = compile t in
+    foldl1 App (step [t'])
 
 step :: [Term] -> [Term]
 step (App t1 t2:rst) = step (t1:t2:rst)
 step (I:x:rst) = step (x:rst)
 step (K:x:y:rst) = step (x:rst)
 step (S:f:g:x:rst) = step (f:x:App g x:rst)
-step (Uniop f:Data x:rst) = step (runUniop f x: rst)
-step (Binop f:Data x:Data y:rst) = step (runBinop f x y: rst)
-step rst = trace "terminate!" rst
+step (Uniop f:x:rst) = 
+    case run x of
+        Data d -> step (runUniop f d : rst)
+        _ -> (Uniop f:x:rst)
+step (Binop f:x:y:rst) = 
+    case (run x, run y) of
+        (Data d1, Data d2) -> step (runBinop f d1 d2: rst)
+        (_,_) -> (Binop f:x:y:rst)
+step rst = rst
 
 
 isPureLamb :: Term -> Bool
@@ -118,24 +126,21 @@ isFree :: String -> Term -> Bool
 isFree v (Var x) = x /= v
 isFree v (Abs x t) = x == v || isFree v t
 isFree v (App t1 t2) = isFree v t1 && isFree v t2
-isFree v combs = True
+isFree v atom = True
 
 compile :: Term -> Term
 compile (Var x) = Var x
 compile (Abs x t)
-    | isFree x t = App K t
+    | isFree x t = App K (compile t)
 compile (Abs x (Var y)) =
     I -- x /= y since x is not free
 compile (Abs x (Abs y t)) =
-    Abs x $ compile (Abs y t)
+    compile $ Abs x $ compile (Abs y t)
 compile (Abs x (App t1 t2)) =
-    App (App S (Abs x t1)) (Abs x t2)     
-compile (Abs x combs) = App K combs
-compile (App t1 t2) =
-    if isPureComb t1
-    then App t1 (compile t2)
-    else App (compile t1) t2
-compile combs = combs
+    App (App S (compile $ Abs x t1)) (compile $ Abs x t2)     
+compile (Abs x atom) = App K atom
+compile (App t1 t2) = App (compile t1) (compile t2)
+compile atom = atom
 
 
 reduceComb :: Term -> Term

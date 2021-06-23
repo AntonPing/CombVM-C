@@ -1,10 +1,10 @@
--- Functional parsing library from chapter 13 of Programming in Haskell,
--- Graham Hutton, Cambridge University Press, 2016.
+
 module NoremParser (module NoremParser) where
-import NoremRuntime
 import Prelude hiding (error)
+import NoremRuntime
 import Control.Applicative
 import Data.Char
+import Debug.Trace
 
 
 -- Basic definitions
@@ -14,12 +14,12 @@ data Result a =
    | Err String
    deriving (Show,Eq)
 
-newtype Parser a = P { run :: String -> (String, Result a)}
+newtype Parser a = P { runP :: String -> (String, Result a)}
 
 instance Functor Parser where
    -- fmap :: (a -> b) -> Parser a -> Parser b
    fmap f p = P $ \s ->
-      case run p s of
+      case runP p s of
          (rst, Ok v) -> (rst,Ok (f v))
          (rst, Err e) -> (rst,Err e)
 
@@ -29,15 +29,15 @@ instance Applicative Parser where
 
    -- <*> :: Parser (a -> b) -> Parser a -> Parser b
    pf <*> px = P $ \s ->
-      case run pf s of
-         (rst, Ok vf) -> run (fmap vf px) rst
+      case runP pf s of
+         (rst, Ok vf) -> runP (fmap vf px) rst
          (rst, Err e) -> (rst, Err e)
 
 instance Monad Parser where
    -- (>>=) :: Parser a -> (a -> Parser b) -> Parser b
    p >>= f = P $ \s ->
-      case run p s of
-         (rst, Ok v) -> run (f v) rst
+      case runP p s of
+         (rst, Ok v) -> runP (f v) rst
          (rst, Err e) -> (rst, Err e)
    -- return :: a -> Parser a
    return v = P (\s -> (s, Ok v))
@@ -47,8 +47,8 @@ instance Alternative Parser where
    empty = P $ \s -> (s, Err "empty!")
    -- (<|>) :: Parser a -> Parser a -> Parser a
    p <|> q = P $ \s ->
-      case run p s of
-         (_, Err e) -> run q s
+      case runP p s of
+         (_, Err e) -> runP q s
          (rst, Ok v) -> (rst, Ok v)
 
 -- return have already defined
@@ -62,7 +62,7 @@ parEOF = P $ \s -> case s of
 
 try :: Parser a -> Parser a
 try p = P $ \s ->
-   case run p s of
+   case runP p s of
       (rst, Ok v) -> (s, Ok v)
       (rst, Err e) -> (s, Err e)
 
@@ -103,8 +103,8 @@ parLower = satChar isLower
 parUpper :: Parser Char
 parUpper = satChar isUpper
 
-parLetter :: Parser Char
-parLetter = satChar isAlpha
+parAlpha :: Parser Char
+parAlpha = satChar isAlpha
 
 parAlphaNum :: Parser Char
 parAlphaNum = satChar isAlphaNum
@@ -115,6 +115,9 @@ isLegal x = not $ x `elem`
 
 parLegal :: Parser Char
 parLegal = satChar isLegal
+
+parDelim :: Parser Char
+parDelim = satChar (not . isLegal) <|> parEOF
 
 eatSpace :: Parser ()
 eatSpace = do
@@ -153,7 +156,8 @@ word p = do
    return v
 
 termFold :: Term -> Parser Term
-termFold fun = do
+termFold fun = eatSpace >>
+   do
       arg <- parTerm
       termFold (App fun arg)
    <|> do
@@ -165,18 +169,35 @@ termFold fun = do
 
 termList :: Parser Term
 termList = do
-   app0 <- parTerm
-   termFold app0
+      app0 <- parTerm
+      termFold app0
+
+opMap :: [(String,Term)]
+opMap = 
+   [("!", Uniop FNot),
+   ("~", Uniop FNeg),
+   ("+", Binop FAdd),
+   ("-", Binop FSub),
+   ("*", Binop FMul),
+   ("/", Binop FDiv)]
 
 parTerm :: Parser Term
-parTerm = do
-      x <- word parSymb
-      return (Var x)
+parTerm = eatSpace >>
+   do
+      n <- parInt
+      try parDelim
+      return (Data (DInt n))
+   <|> do
+      x <- parSymb
+      try parDelim
+      case lookup x opMap of
+         Just op -> return op
+         Nothing -> return (Var x)
    <|> do
       parChar '\\'
       x <- parSymb
       parChar '.'
-      t <- parTerm
+      t <- termList
       return (Abs x t)
    <|> do
       parChar '('
@@ -185,7 +206,8 @@ parTerm = do
       return t
 
 parMain :: Parser Term
-parMain = do
+parMain = eatSpace >>
+   do
       t <- termList
       eatSpace
       parEOF
@@ -201,7 +223,7 @@ parMain = do
 
 parse :: String -> Maybe Term
 parse str =
-   case run parMain str of
+   case runP parMain str of
       (_, Ok t) -> Just t
       (_, Err e) -> Nothing
    
