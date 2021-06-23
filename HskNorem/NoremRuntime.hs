@@ -23,11 +23,11 @@ instance Gen Term where
 -}
 
 data Uniop =
-      FNot
+    FNot | FNeg
     deriving (Eq,Show)
 
 data Binop =
-      FAdd
+    FAdd | FSub | FMul | FDiv
     deriving (Eq,Show)
 
 data Data =
@@ -51,8 +51,8 @@ instance Show Term where
     show (Var x) = x
     show (Abs x t) = "λ." ++ x ++ " " ++ show t
     show (App t1 t2) = "(" ++ show t1 ++ " " ++ show t2 ++ ")"
-    show (Uniop f) = show (Uniop f)
-    show (Binop f) = show (Binop f)
+    show (Uniop f) = show f
+    show (Binop f) = show f
     show (Data d) = show (Data d)
     show I = "I"
     show K = "K"
@@ -65,6 +65,8 @@ instance Show Term where
 
 runUniop :: Uniop -> Data -> Term
 runUniop FNot (DBool p) = Data (DBool (not p))
+runUniop FNeg (DInt a) = Data (DInt (-a))
+runUniop FNeg (DReal a) = Data (DReal (-a))
 runUniop _ d = trace "panic!" Data d
 
 runBinop :: Binop -> Data -> Data -> Term
@@ -74,6 +76,10 @@ runBinop FAdd (DReal a) (DInt b) = Data (DReal (a + fromIntegral b))
 runBinop FAdd (DReal a) (DReal b) = Data (DReal (a + b))
 runBinop _ d1 d2 = trace "panic!" (App (Data d1) (Data d2))
 
+
+run :: Term -> Term
+run t = foldl1 App (step [t])
+
 step :: [Term] -> [Term]
 step (App t1 t2:rst) = step (t1:t2:rst)
 step (I:x:rst) = step (x:rst)
@@ -82,6 +88,7 @@ step (S:f:g:x:rst) = step (f:x:App g x:rst)
 step (Uniop f:Data x:rst) = step (runUniop f x: rst)
 step (Binop f:Data x:Data y:rst) = step (runBinop f x y: rst)
 step rst = trace "terminate!" rst
+
 
 isPureLamb :: Term -> Bool
 isPureLamb (Var x) = True 
