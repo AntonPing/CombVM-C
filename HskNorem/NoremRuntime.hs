@@ -23,11 +23,13 @@ instance Gen Term where
 -}
 
 data Uniop =
-    FNot | FNeg
+      FNot | FNeg
+    | FIf
     deriving (Eq,Show)
 
 data Binop =
-    FAdd | FSub | FMul | FDiv
+      FAdd | FSub | FMul | FDiv
+    | FEql | FGtr | FLss
     deriving (Eq,Show)
 
 data Data =
@@ -45,12 +47,13 @@ data Term =
     | Binop Binop
     | Data Data
     | I | K | S | B | C | S' | B' | C'
+    | F | U | Y
     deriving (Eq)
 
 instance Show Term where
     show (Var x) = x
-    show (Abs x t) = "λ." ++ x ++ " " ++ show t
-    show (App t1 t2) = "(" ++ show t1 ++ " " ++ show t2 ++ ")"
+    show (Abs x t) = prettyAbs (Abs x t)
+    show (App t1 t2) = prettyApp (App t1 t2)
     show (Uniop f) = show f
     show (Binop f) = show f
     show (Data d) = show d
@@ -62,11 +65,46 @@ instance Show Term where
     show S' = "S'"
     show B' = "B*"
     show C' = "C'"
+    show Y = "Y"
+    show U = "U"
+    show F = "F"
+
+
+prettyAbs :: Term -> String
+prettyAbs (Abs x (Abs y t)) =
+    "(λ." ++ x ++ prettyAbsHelper (Abs y t)
+prettyAbs (Abs x t) =
+    "(λ." ++ x ++ " -> " ++ show t ++ ")"
+prettyAbs other = error "prttyAbs is for Abs only"
+
+prettyAbsHelper :: Term -> String
+prettyAbsHelper (Abs x (Abs y t)) =
+    " " ++ x ++ prettyAbsHelper (Abs y t)
+prettyAbsHelper (Abs x t) =
+    " " ++ x ++ " -> " ++ show t ++ ")"
+prettyAbsHelper other = error "prttyAbs is for Abs only"
+
+prettyApp :: Term -> String
+prettyApp (App (App t1 t2) t3) =
+    prettyAppHelper (App t1 t2) ++ " " ++ show t3 ++ ")"
+prettyApp (App t1 t2) =
+    "(" ++ show t1 ++ " " ++ show t2 ++ ")"
+prettyApp other = error "prttyApp is for App only"
+
+prettyAppHelper :: Term -> String
+prettyAppHelper (App (App t1 t2) t3) =
+    prettyAppHelper (App t1 t2) ++ " " ++ show t3
+prettyAppHelper (App t1 t2) =
+    "(" ++ show t1 ++ " " ++ show t2
+prettyAppHelper other = error "prttyApp is for App only"
+
 
 runUniop :: Uniop -> Data -> Term
 runUniop FNot (DBool p) = Data (DBool (not p))
 runUniop FNeg (DInt a) = Data (DInt (-a))
 runUniop FNeg (DReal a) = Data (DReal (-a))
+runUniop FIf (DBool True) = K
+runUniop FIf (DBool False) = F
 runUniop _ d = trace "panic!" Data d
 
 runBinop :: Binop -> Data -> Data -> Term
@@ -74,12 +112,15 @@ runBinop FAdd (DInt a) (DInt b) = Data (DInt (a + b))
 runBinop FAdd (DInt a) (DReal b) = Data (DReal (fromIntegral a + b))
 runBinop FAdd (DReal a) (DInt b) = Data (DReal (a + fromIntegral b))
 runBinop FAdd (DReal a) (DReal b) = Data (DReal (a + b))
+runBinop FEql (DInt a) (DInt b) = Data (DBool (a == b))
+runBinop FGtr (DInt a) (DInt b) = Data (DBool (a > b))
+runBinop FLss (DInt a) (DInt b) = Data (DBool (a < b))
 runBinop _ d1 d2 = trace "panic!" (App (Data d1) (Data d2))
-
 
 run :: Term -> Term
 run t =
     let t' = compile t in
+        --t'' = iterTrace optComb t' in
     foldl1 App (step [t'])
 
 step :: [Term] -> [Term]
@@ -87,14 +128,23 @@ step (App t1 t2:rst) = step (t1:t2:rst)
 step (I:x:rst) = step (x:rst)
 step (K:x:y:rst) = step (x:rst)
 step (S:f:g:x:rst) = step (f:x:App g x:rst)
+step (B:f:g:x:rst) = step (f:App g x:rst)
+step (C:f:g:x:rst) = step (f:x:g:rst)
+step (S':c:f:g:x:rst) = step (c:App f x:App g x:rst)
+step (B':c:f:g:x:rst) = step (c:f:App g x:rst)
+step (C':c:f:g:x:rst) = step (c:App f x:g:rst)
+step (Y:f:x:rst) = step (f:Y:App f x:rst)
+step (U:x:y:f:rst) = step (f:x:y:rst)
+step (F:x:y:rst) = step (y:rst)
 step (Uniop f:x:rst) = 
     case run x of
         Data d -> step (runUniop f d : rst)
-        _ -> (Uniop f:x:rst)
+        _ -> trace ("can't eval" ++ show x) (Uniop f:x:rst)
 step (Binop f:x:y:rst) = 
     case (run x, run y) of
         (Data d1, Data d2) -> step (runBinop f d1 d2: rst)
-        (_,_) -> (Binop f:x:y:rst)
+        (Data d1,_) -> trace ("can't eval" ++ show y) (Binop f:x:y:rst)
+        (_,_) -> trace ("can't eval" ++ show x) (Binop f:x:y:rst)
 step rst = rst
 
 
@@ -176,7 +226,7 @@ optComb (App (App (App B p) q) r) =
 optComb (App t1 t2) =
     let t1' = optComb t1
         t2' = optComb t2 in
-    if t1' == t1 then App t1 t2' else App t1' t2
+    App t1' t2'
 optComb other = other
 
 
@@ -184,11 +234,3 @@ iterTrace :: Show a => Eq a => (a -> a) -> a -> a
 iterTrace f x = trace (show x)
     (if f x == x then x else iterTrace f (f x))
 
-
-test = Abs "x" (Abs "y" (App (Var "y") (Var "x")))
-
-testComb = iterTrace compile test
-
-testOpt = iterTrace optComb testComb
-
-result = iterTrace reduceComb $ App (App testOpt (Var "1")) (Var "2")

@@ -3,9 +3,9 @@ module NoremParser (module NoremParser) where
 import Prelude hiding (error)
 import NoremRuntime
 import Control.Applicative
+import Data.Maybe
 import Data.Char
 import Debug.Trace
-
 
 -- Basic definitions
 
@@ -176,10 +176,18 @@ opMap :: [(String,Term)]
 opMap = 
    [("!", Uniop FNot),
    ("~", Uniop FNeg),
+   ("if", Uniop FIf),
    ("+", Binop FAdd),
    ("-", Binop FSub),
    ("*", Binop FMul),
-   ("/", Binop FDiv)]
+   ("/", Binop FDiv),
+   ("==", Binop FEql),
+   (">", Binop FGtr),
+   ("<", Binop FLss),
+   (">=", fromJust $ parse "\\x.\\y. ! (< x y)"),
+   ("<=", fromJust $ parse "\\x.\\y. ! (> x y)"),
+   ("true", Data (DBool True)),
+   ("false", Data (DBool False))]
 
 parTerm :: Parser Term
 parTerm = eatSpace >>
@@ -188,17 +196,33 @@ parTerm = eatSpace >>
       try parDelim
       return (Data (DInt n))
    <|> do
-      x <- parSymb
-      try parDelim
-      case lookup x opMap of
-         Just op -> return op
-         Nothing -> return (Var x)
-   <|> do
       parChar '\\'
       x <- parSymb
       parChar '.'
       t <- termList
       return (Abs x t)
+   <|> do
+      str <- parString "let"
+      some parSpace
+      x <- parSymb
+      some parSpace
+      t1 <- parTerm
+      t2 <- parTerm
+      return (App (Abs x t2) t1)
+   <|> do 
+      str <- parString "letrec"
+      some parSpace
+      x <- parSymb
+      some parSpace
+      t1 <- parTerm
+      t2 <- parTerm
+      return (App (Abs x t2) (App Y (Abs x t1)))
+   <|> do
+      x <- parSymb
+      try parDelim
+      case lookup x opMap of
+         Just op -> return op
+         Nothing -> return (Var x)
    <|> do
       parChar '('
       t <- termList
