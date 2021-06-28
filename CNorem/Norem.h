@@ -12,11 +12,15 @@
 #include <assert.h>
 #include <ctype.h>
 
-typedef uint64_t Int_t;
-typedef double Real_t;
-typedef char Char_t;
+typedef uint64_t int_t;
+typedef double real_t;
+typedef char char_t;
+typedef char* Symb_t;
 
-struct Symb_t;
+
+
+
+
 
 typedef enum Tag_t {
     VAR, ABS, APP, ENV,
@@ -27,6 +31,31 @@ typedef enum Tag_t {
 } Tag_t;
 
 typedef struct Term_t {
+    Tag_t tag;
+    union {
+        struct { // Abs,Env,Clos
+            struct Symb_t* x;
+            struct Term_t* t;
+        };
+        struct { // App & Cons
+            struct Term_t* t1;
+            struct Term_t* t2;
+        };
+        struct { // STR
+            char* as_str;
+            size_t str_len;
+        };
+        struct Symb_t* as_symb;
+        struct Term_t* (*as_func)();
+        struct Term_t* as_term;
+        int64_t as_int;
+        double as_real;
+        char as_char;
+        bool as_bool;
+    };
+} Term_t;
+
+typedef struct Syntax_t {
     Tag_t tag;
     union {
         struct { // Abs,Env,Clos
