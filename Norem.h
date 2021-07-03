@@ -15,84 +15,31 @@
 typedef uint64_t int_t;
 typedef double real_t;
 typedef char char_t;
-typedef char* Symb_t;
+typedef bool bool_t;
+typedef char* symb_t;
 
 typedef enum Tag_t {
+    INT, REAL, CHAR, BOOL, SYMB,
+    I,K,S,B,C,SP,BS,CP,Y,
     VAR, ABS, APP, ENV,
-    DEBUG,
     CONS, FUNC, DATA,
-    INT, REAL, CHAR, SYMB,
-    BOOL, NIL, STR
+    NIL, STR
 } Tag_t;
 
 typedef struct Term_t {
-    Tag_t tag;
     union {
-        struct { // Abs,Env,Clos
-            struct Symb_t* x;
-            struct Term_t* t;
-        };
-        struct { // App & Cons
-            struct Term_t* t1;
-            struct Term_t* t2;
-        };
-        struct { // STR
-            char* as_str;
-            size_t str_len;
-        };
-        struct Symb_t* as_symb;
-        struct Term_t* (*as_func)();
-        struct Term_t* as_term;
-        int64_t as_int;
-        double as_real;
-        char as_char;
-        bool as_bool;
+        void* tag;
+        struct Term_t* t1;
+    };
+    union {
+        int_t int_v;
+        real_t real_v;
+        char_t char_v;
+        bool_t bool_v;
+        symb_t symb_v;
+        struct Term_t* t2;
     };
 } Term_t;
 
-typedef struct Syntax_t {
-    Tag_t tag;
-    union {
-        struct { // Abs,Env,Clos
-            struct Symb_t* x;
-            struct Term_t* t;
-        };
-        struct { // App & Cons
-            struct Term_t* t1;
-            struct Term_t* t2;
-        };
-        struct { // STR
-            char* as_str;
-            size_t str_len;
-        };
-        struct Symb_t* as_symb;
-        struct Term_t* (*as_func)();
-        struct Term_t* as_term;
-        int64_t as_int;
-        double as_real;
-        char as_char;
-        bool as_bool;
-    };
-} Term_t;
-
-typedef enum state_t {
-    UNDEF, LINK, BASIC,
-} state_t;
-
-typedef struct Symb_t {
-    char* key;
-    state_t state;
-    union {
-        Term_t* value;
-        Term_t* (*fn)();
-    };
-} Symb_t;
-
-#define STACK_SIZE 1024
-#define HEAP_SIZE 20000
-#define SYMB_POOL_SIZE 1024
-
-#define TRASH_SIZE 1024
-#define DICT_SIZE 1024
 
 #endif

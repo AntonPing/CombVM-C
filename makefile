@@ -2,7 +2,7 @@
 CCFLAG ?= -g -Wall -Wextra -Werror
 CC := gcc
 
-Norem: Norem.o NoremParse.o m
+Norem: Norem.o NoremParse.o
 	$(CC) $(CCFLAG) -o $@ $^
 .c.o:
 	$(CC) $(CCFLAG) -c $<

@@ -6,7 +6,7 @@
 | (t1 t2 ... tn)
 | \x. t1 t2 ... tn
 | (x -> t)
-*/
+
 Char_t* text_base;
 Char_t* text_ptr;
 
@@ -199,7 +199,7 @@ Term_t* read_apply_list() {
         }   
     }
 }
-/*
+
 bool read_char(Char_t c) {
     if(*text_ptr == c) {
         text_next();
@@ -208,7 +208,7 @@ bool read_char(Char_t c) {
         return false;
     }
 }
-*/
+
 
 Term_t* read_lambda() {
     Term_t* result;
@@ -331,3 +331,5 @@ Term_t* compile(Char_t* text) {
         return NULL;
     }
 }
+
+*/
