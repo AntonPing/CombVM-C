@@ -1,12 +1,29 @@
-.DEFAULT_GOAL := Norem
-CCFLAG ?= -g -Wall -Wextra -Werror
+.DEFAULT_GOAL := $(TARGET)
+TARGET = $(DIR_BIN)/Norem
+CFLAGS ?= -g -Wall -Wextra -Werror
 CC := gcc
 
-Norem: Norem.o NoremParse.o
-	$(CC) $(CCFLAG) -o $@ $^
-.c.o:
-	$(CC) $(CCFLAG) -c $<
-run:
-	./Norem
+DIR_INC = ./include
+DIR_SRC = ./src
+DIR_OBJ = ./obj
+DIR_BIN = ./bin
+
+SRCS = $(wildcard $(DIR_SRC)/*.c)
+OBJS = $(patsubst %.c,$(DIR_OBJ)/%.o,$(notdir $(SRCS)))
+
+$(TARGET) : $(OBJS)
+	$(CC) $(OBJS) -o $@
+
+$(DIR_OBJ)/%.o : ${DIR_SRC}/%.c
+	$(CC) $(CFLAGS) -c $< -o $@
+
+testt:
+	echo $(SRCS)
+	echo $(OBJS)
+
+run: $(TARGET)
+	$(TARGET)
+
 clean:
-	rm -rf *.o main
+	rm -rf $(DIR_OBJ)/* 
+	rm -rf $(DIR_BIN)/*
