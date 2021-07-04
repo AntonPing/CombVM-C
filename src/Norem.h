@@ -28,7 +28,7 @@ typedef enum Tag_t {
 
 typedef struct Term_t {
     union {
-        void* tag;
+        char* tag;
         struct Term_t* t1;
     };
     union {
