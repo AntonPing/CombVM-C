@@ -1,13 +1,13 @@
 #include "Norem.h"
 
-char tag[256];
+char tags[256];
 
 bool is_atom(Term_t* term) {
-    return term->tag >= &tag[0] && term->tag <= &tag[255];
+    return term->tag >= &tags[0] && term->tag <= &tags[255];
 }
 
 bool is_cons(Term_t* term) {
-    return term->tag < &tag[0] || term->tag > &tag[255];
+    return term->tag < &tags[0] || term->tag > &tags[255];
 }
 
 void show_term(Term_t* term);
@@ -31,7 +31,7 @@ void show_term(Term_t* term) {
     }
 
     if(is_atom(term)) {
-        switch(term->tag - &tag[0]) {
+        switch(term->tag - &tags[0]) {
             case INT:
                 printf("%ld",term->int_v);
                 return;
@@ -56,6 +56,9 @@ void show_term(Term_t* term) {
         printf(")");
     }   
 }
+
+
 int main() {
     printf("hello\n");
+    parser_test();
 }

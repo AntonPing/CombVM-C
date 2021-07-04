@@ -17,6 +17,10 @@ typedef double real_t;
 typedef char char_t;
 typedef bool bool_t;
 typedef char* symb_t;
+typedef char* string_t;
+
+// global tag pointers
+extern char* tags;
 
 typedef enum Tag_t {
     INT, REAL, CHAR, BOOL, SYMB,
@@ -41,5 +45,7 @@ typedef struct Term_t {
     };
 } Term_t;
 
+//NoremParse.c
+void parser_test();
 
 #endif

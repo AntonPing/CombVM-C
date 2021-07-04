@@ -1,122 +1,217 @@
 #include "Norem.h"
 
 /*
-| Int | Real | Char
+| Int
+| Real
+| Char: 'a-zA-z0-9'*
+| Bool: True | False
 | [t1,t2,...,tn]
 | (t1 t2 ... tn)
+| {t1 t2 ... tn}
 | \x. t1 t2 ... tn
 | (x -> t)
+*/
 
-Char_t* text_base;
-Char_t* text_ptr;
+typedef struct Parser_t {
+    bool success;
+    union {
+        int_t int_v;
+        real_t real_v;
+        char_t char_v;
+        char_t* string_v;
+        // to be continued....
+    };
+    char_t* text_base;
+    char_t* text_ptr;
+} Parser_t;
 
-void text_next() {
-    if(*text_ptr == '\0') {
-        error("parse failed!");
+#define PARSER_CHECK(p) \
+    if(!p.success) return p
+
+#define PARSER_BIND(p1,p2) \
+    p2.success ? p2 : p1
+
+#define PARSER_FAIL(p) \
+    p.success = false; \
+    return p
+
+#define PARSER_SUCCESS(p) \
+    p.success = true; \
+    return p
+
+Parser_t end_of_text(Parser_t par) {
+    PARSER_CHECK(par);
+    if(par.text_ptr[0] == '\0') {
+        PARSER_SUCCESS(par);   
+    } else {
+        PARSER_FAIL(par);
     }
-    text_ptr ++;
 }
 
-bool chr_in_str(Char_t c, Char_t* str) {
-    Char_t* ptr = str;
+Parser_t read_char(Parser_t par) {
+    PARSER_CHECK(par);
+    if(par.text_ptr[0] != '\0') {
+        par.char_v = par.text_ptr[0];
+        par.text_ptr ++;
+        PARSER_SUCCESS(par);
+    } else {
+        PARSER_FAIL(par);
+    }
+}
+
+Parser_t parse_char(Parser_t par, char_t c) {
+    PARSER_CHECK(par);
+    Parser_t p1 = read_char(par);
+    PARSER_CHECK(p1);
+    if(p1.char_v == c) {
+        PARSER_SUCCESS(p1);
+    } else {
+        PARSER_FAIL(p1);
+    }
+}
+
+Parser_t char_satisify(Parser_t par, bool (*fun) (char_t)) {
+    PARSER_CHECK(par);
+    Parser_t p1 = read_char(par);
+    PARSER_CHECK(p1);
+    if(fun(p1.char_v)) {
+        PARSER_SUCCESS(p1);
+    } else {
+        PARSER_FAIL(p1);
+    }
+}
+
+Parser_t read_string(Parser_t par, size_t len) {
+    PARSER_CHECK(par);
+    char_t* str = malloc(sizeof(char_t) * len + 1);
+    memset(str, '\0', len + 1);
+    strncpy(str, par.text_ptr, len);
+    if(strlen(str) < len) {
+        free(str);
+        PARSER_FAIL(par);
+    } else {
+        par.string_v = str;
+        par.text_ptr += len;
+        PARSER_SUCCESS(par);
+    }
+}
+
+Parser_t parse_string(Parser_t par, string_t str) {
+    PARSER_CHECK(par);
+    Parser_t p1 = read_string(par,strlen(str));
+    PARSER_CHECK(p1);
+    if(strcmp(p1.string_v,str) == 0) {
+        PARSER_SUCCESS(p1);
+    } else {
+        PARSER_FAIL(p1);
+    }
+}
+
+bool chr_in_str(char_t c, char_t* str) {
+    char_t* ptr = str;
     while(*ptr != '\0') {
-        if(c == *ptr) {
-            return true;
-        }
-        ptr ++;
+        if(c == *ptr++) { return true; }
     }
     return false;
 }
-bool is_digit(Char_t c) {
+bool is_digit(char_t c) {
     return c >= '0' && c <= '9';
 }
-bool is_alpha(Char_t c) {
+bool is_alpha(char_t c) {
     return (c >= 'A' && c <= 'Z') || (c >= 'a' && c <= 'z');
 }
-bool is_space(Char_t c) {
+bool is_space(char_t c) {
     return c == ' ' || c == '\n' || c == '\r' || c == '\t';
 }
-bool is_legal_char(Char_t c) {
-    static Char_t legals[] = "~!@#$^&*-_=+:/?<>%%";
-    return is_alpha(c) || is_digit(c) || chr_in_str(c,legals);
+bool is_extended(char_t c) {
+    static char_t extended[] = "+-.*/<=>!?:$%%_&~^";
+    return chr_in_str(c,extended);
 }
-
-bool is_spec_char(Char_t c) {
-    static Char_t specs[] = "()[]{};,.";
+bool is_legal(char_t c) {
+    return is_alpha(c) || is_digit(c) || is_extended(c);
+}
+bool is_spec_char(char_t c) {
+    static char_t specs[] = "()[]{};,";
     return chr_in_str(c,specs);
 }
 
-Int_t parse_digit(Char_t c) {
-    return (Int_t)(c - '0');
-}
-
-void eat_space() {
+Parser_t eat_space(Parser_t par) {
+    PARSER_CHECK(par);
     while(true) {
-        if(is_space(*text_ptr)) {
-            text_next();
-            continue;
-        } else if(text_ptr[0] == '#' && text_ptr[1] == '|') {
-            while(!(text_ptr[0] == '|' && text_ptr[1] == '#')) {
-                text_next();
-            }
-            continue;
-        } else if(*text_ptr == '#') {
-            while(!(is_space(*text_ptr) && *text_ptr != ' ')) {
-                text_next();
-            }
-            continue;
+        Parser_t p1 = char_satisify(par, is_space);
+        if(p1.success) {
+            par = p1; continue;
         } else {
-            break;
+            PARSER_SUCCESS(par);
         }
     }
 }
 
-Term_t* read_int() {
-    bool with_minus;
-    Int_t value;
-    Char_t* old_ptr = text_ptr;
+Parser_t parse_digit(Parser_t par) {
+    return char_satisify(par,is_digit);
+}
 
-    // may begin with a minus
-    if(*text_ptr == '-') {
-        with_minus = true;
-        text_next();
-    } else {
-        with_minus = false;
-    }
+Parser_t parse_unsigned_int(Parser_t par) {
+    PARSER_CHECK(par);
     // minimal - one digit
-    if(is_digit(*text_ptr)) {
-        value = parse_digit(*text_ptr);
-        text_next();
-    } else {
-        text_ptr = old_ptr;
-        return NULL;
+    char* ptr = par.text_ptr;
+    if(!is_digit(*ptr)) {
+        PARSER_FAIL(par);
     }
-    // more digits
-    while(is_digit(*text_ptr)) {
+    // read digits until fail
+    int_t value = *ptr++ - '0';
+    while(is_digit(*ptr)) {
         value *= 10;
-        value += parse_digit(*text_ptr);
-        text_next();
+        value += *ptr++ - '0'; // convert '0'~'9' to 0~9
     }
-    // return with(out) minus
+    // return value
+    par.text_ptr = ptr;
+    par.int_v = value;
+    PARSER_SUCCESS(par);
+}
+
+Parser_t parse_int(Parser_t par) {
+    PARSER_CHECK(par);
+    bool_t with_minus = false;
+    if(par.text_ptr[0] == '-') {
+        par.text_ptr ++;
+        with_minus = true;
+    }
+    Parser_t p1 = parse_unsigned_int(par);
+    PARSER_CHECK(p1);
     if(with_minus) {
-        return Int(-value);
+        p1.int_v *= -1;
+    }
+    PARSER_SUCCESS(p1);
+}
+
+
+void debug_show_parser(Parser_t par) {
+    if(par.success) {
+        printf(par.text_ptr);
+        printf(" as %ld", par.int_v);
+        printf(", success\n");
     } else {
-        return Int(value);
+        printf("fail\n");
     }
 }
 
-Symb_t* make_symb(Char_t* from, Char_t* to) {
-    Char_t buffer[64];
-    size_t idx;
-    for(idx = 0; from + idx <= to; idx ++) {
-        buffer[idx] = from[idx];
-    }
-    buffer[idx] = '\0';
-    return to_symb(buffer);
+void parser_test() {
+    Parser_t par;
+    char* text = "-2048sadfas";
+    par.success = true;
+    par.text_base = text;
+    par.text_ptr = text;
+
+    Parser_t p1 = parse_string(par,"-2048sa");
+    debug_show_parser(p1);
 }
 
+
+
+/*
 Term_t* read_symb() {
-    Char_t* old_ptr = text_ptr;
+    char_t* old_ptr = text_ptr;
 
     // minimal - one letter
     if(is_legal_char(*text_ptr)) {
@@ -200,7 +295,7 @@ Term_t* read_apply_list() {
     }
 }
 
-bool read_char(Char_t c) {
+bool read_char(char_t c) {
     if(*text_ptr == c) {
         text_next();
         return true;
@@ -213,7 +308,7 @@ bool read_char(Char_t c) {
 Term_t* read_lambda() {
     Term_t* result;
     Term_t* temp;
-    Char_t* old_ptr = text_ptr;
+    char_t* old_ptr = text_ptr;
     
     printf("lambda: %s\n",text_ptr);
 
@@ -255,7 +350,7 @@ Term_t* read_lambda() {
 
 Term_t* read_debug_term() {
     Term_t* result;
-    Char_t* old_ptr = text_ptr;
+    char_t* old_ptr = text_ptr;
     eat_space();
 
     if(*text_ptr != '`') {
@@ -275,7 +370,7 @@ Term_t* read_debug_term() {
 }
 
 Term_t* read_term() {
-    Char_t* old_ptr;
+    char_t* old_ptr;
     Term_t* result;
     printf("term: %s\n",text_ptr);
 
@@ -314,8 +409,8 @@ Term_t* read_term() {
     return NULL;
 }
 
-Term_t* compile(Char_t* text) {
-    Char_t* rest;
+Term_t* compile(char_t* text) {
+    char_t* rest;
     Term_t* result;
     text_base = text;
     text_ptr = text;

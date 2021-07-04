@@ -18,12 +18,14 @@ $(DIR_OBJ)/%.o : ${DIR_SRC}/%.c
 	$(CC) $(CFLAGS) -c $< -o $@
 
 testt:
-	echo $(SRCS)
-	echo $(OBJS)
+	@echo $(SRCS)
+	@echo $(OBJS)
 
 run: $(TARGET)
-	$(TARGET)
+	@$(TARGET)
 
 clean:
-	rm -rf $(DIR_OBJ)/* 
-	rm -rf $(DIR_BIN)/*
+	@rm -rf $(DIR_OBJ)/*
+	@touch $(DIR_OBJ)/.gitkeep
+	@rm -rf $(DIR_BIN)/*
+	@touch $(DIR_BIN)/.gitkeep
