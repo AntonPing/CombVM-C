@@ -18,7 +18,9 @@ typedef struct Parser_t {
         int_t int_v;
         real_t real_v;
         char_t char_v;
-        char_t* string_v;
+        symb_t symb_v;
+        string_t string_v;
+        Term_t* term_v;
         // to be continued....
     };
     char_t* text_base;
@@ -27,6 +29,9 @@ typedef struct Parser_t {
 
 #define PARSER_CHECK(p) \
     if(!p.success) return p
+
+#define PARSER_CUT(p) \
+    if(p.success) return p
 
 #define PARSER_BIND(p1,p2) \
     p2.success ? p2 : p1
@@ -83,9 +88,7 @@ Parser_t char_satisify(Parser_t par, bool (*fun) (char_t)) {
 
 Parser_t read_string(Parser_t par, size_t len) {
     PARSER_CHECK(par);
-    char_t* str = malloc(sizeof(char_t) * len + 1);
-    memset(str, '\0', len + 1);
-    strncpy(str, par.text_ptr, len);
+    char_t* str = substr(par.text_ptr,len);
     if(strlen(str) < len) {
         free(str);
         PARSER_FAIL(par);
@@ -135,18 +138,6 @@ bool is_spec_char(char_t c) {
     return chr_in_str(c,specs);
 }
 
-Parser_t eat_space(Parser_t par) {
-    PARSER_CHECK(par);
-    while(true) {
-        Parser_t p1 = char_satisify(par, is_space);
-        if(p1.success) {
-            par = p1; continue;
-        } else {
-            PARSER_SUCCESS(par);
-        }
-    }
-}
-
 Parser_t parse_digit(Parser_t par) {
     return char_satisify(par,is_digit);
 }
@@ -185,11 +176,101 @@ Parser_t parse_int(Parser_t par) {
     PARSER_SUCCESS(p1);
 }
 
+Parser_t parse_symb(Parser_t par) {
+    PARSER_CHECK(par);
+    // minimal - one legal
+    char* ptr = par.text_ptr;
+    if(!is_legal(*ptr)) {
+        PARSER_FAIL(par);
+    }
+    // read legal until fail
+    while(is_legal(*ptr)) {
+        ptr ++;
+    }
+    string_t res = substr(par.text_ptr, ptr - par.text_ptr);
+    par.text_ptr = ptr;
+    par.symb_v = to_symb(res);
+    PARSER_SUCCESS(par);
+}
+
+Parser_t parse_any_space(Parser_t par) {
+    PARSER_CHECK(par);
+    char* ptr = par.text_ptr;
+    while(is_space(*ptr)) {
+        ptr ++;
+    }
+    par.text_ptr = ptr;
+    PARSER_SUCCESS(par);
+}
+
+Parser_t parse_some_space(Parser_t par) {
+    PARSER_CHECK(par);
+    // minimal - one space
+    char* ptr = par.text_ptr;
+    if(!is_space(*ptr)) {
+        PARSER_FAIL(par);
+    }
+    return parse_any_space(par);
+}
+
+
+Parser_t parse_term(Parser_t par);
+Parser_t parse_app_list(Parser_t par);
+
+
+Parser_t parse_app_list(Parser_t par) {
+    PARSER_CHECK(par);
+    // start with '('
+    par = parse_char(par,'(');
+    par = parse_any_space(par);
+    // minimal - one term
+    par = parse_term(par);
+    PARSER_CHECK(par);
+    Term_t* with = par.term_v;
+    // read term until fail
+    Parser_t p1;
+    while(true) {
+        p1 = parse_some_space(par);
+        p1 = parse_term(p1);
+        if(p1.success) {
+            with = new_app(with, p1.term_v);
+            par = p1; continue;
+        } else {
+            break;
+        }
+    }
+    // end with ')'
+    par = parse_any_space(par);
+    par = parse_char(par,')');
+    // return term
+    PARSER_CHECK(par);
+    par.term_v = with;
+    PARSER_SUCCESS(par);
+}
+
+
+Parser_t parse_term(Parser_t par) {
+    PARSER_CHECK(par);
+    Parser_t p1 = parse_int(par);
+    if(p1.success) {
+        p1.term_v = new_int(p1.int_v);
+        PARSER_SUCCESS(p1);
+    }
+    Parser_t p2 = parse_symb(par);
+    if(p2.success) {
+        p2.term_v = new_symb(p2.symb_v);
+        PARSER_SUCCESS(p2);
+    }
+    // no match
+    PARSER_FAIL(par);
+}
+
 
 void debug_show_parser(Parser_t par) {
     if(par.success) {
-        printf(par.text_ptr);
-        printf(" as %ld", par.int_v);
+        printf("rest: %s,",par.text_ptr);
+        printf("match:");
+        show_term(par.term_v);
         printf(", success\n");
     } else {
         printf("fail\n");
@@ -198,12 +279,12 @@ void debug_show_parser(Parser_t par) {
 
 void parser_test() {
     Parser_t par;
-    char* text = "-2048sadfas";
+    char* text = "(dw dc)";
     par.success = true;
     par.text_base = text;
     par.text_ptr = text;
-
-    Parser_t p1 = parse_string(par,"-2048sa");
+    Parser_t p1 = parse_app_list(par);
+    printf("here16\n");
     debug_show_parser(p1);
 }
 

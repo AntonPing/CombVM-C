@@ -29,8 +29,9 @@ void show_term(Term_t* term) {
         printf("NULL\n");
         return;
     }
-
+    printf("here17\n");
     if(is_atom(term)) {
+        printf("here18\n");
         switch(term->tag - &tags[0]) {
             case INT:
                 printf("%ld",term->int_v);
