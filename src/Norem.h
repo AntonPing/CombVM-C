@@ -22,9 +22,16 @@ typedef char* string_t;
 typedef enum Tag_t {
     INT, REAL, CHAR, BOOL, SYMB,
     I,K,S,B,C,SP,BS,CP,Y,
-    LAMB,FUNC,CONS,
+    LAMB,FUNC,CONS,TERM,
     NIL, STR
 } Tag_t;
+
+struct Term_t;
+
+typedef struct Lambda_t {
+    symb_t x;
+    struct Term_t* t;
+} Lambda_t;
 
 typedef struct Term_t {
     union {
@@ -37,7 +44,7 @@ typedef struct Term_t {
         char_t char_v;
         bool_t bool_v;
         symb_t symb_v;
-        struct Term_t* cons;
+        struct Lambda_t* lamb_v;
         struct Term_t* t2;
     };
 } Term_t;
@@ -47,6 +54,7 @@ extern Term_t tags[256];
 
 //Norem.c
 void show_term(Term_t* term);
+void show_lamb(Term_t* term);
 
 //NoremHeap.c
 Term_t* new_app(Term_t* t1, Term_t* t2);
@@ -56,6 +64,7 @@ Term_t* new_real(real_t value);
 Term_t* new_char(char_t value);
 Term_t* new_bool(bool_t value);
 Term_t* new_symb(symb_t value);
+Term_t* new_lamb(symb_t x, Term_t* t);
 
 //NoremParse.c
 void parser_test();

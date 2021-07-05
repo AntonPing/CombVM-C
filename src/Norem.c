@@ -18,7 +18,6 @@ void show_app_list(Term_t* term);
 
 void show_app_list(Term_t* term) {
     if(is_atom(term)) {
-        printf("(");
         show_term(term);
     } else {
         show_app_list(term->t1);
@@ -27,14 +26,27 @@ void show_app_list(Term_t* term) {
     }
 }
 
+void show_lamb(Term_t* term);
+void show_term(Term_t* term);
 
-void show_lambda(Term_t* term) {
+
+void show_lamb(Term_t* term) {
     assert(term->tag == &tags[LAMB]);
-    assert(term->cons->t1->tag == &tags[SYMB]);
-    printf("λ%s.",term->cons->t1->symb_v);
-    show_term(term->cons->t2);
-}
+    printf("(λ %s",term->lamb_v->x);
 
+    Term_t* with = term->lamb_v->t;
+    while(true) {
+        if(with->tag == &tags[LAMB]) {
+            printf(" %s", with->lamb_v->x);
+            with = with->lamb_v->t;
+        } else {
+            printf(" -> ");
+            show_app_list(with);
+            printf(")");
+            return;
+        }
+    }
+}
 
 void show_term(Term_t* term) {
     if(term == NULL) {
@@ -61,13 +73,14 @@ void show_term(Term_t* term) {
                 printf(term->symb_v);
                 return;
             case LAMB:
-                show_lambda(term);
+                show_lamb(term);
                 return;
             case NIL:
                 printf("Nil");
                 return;
         }
     } else {
+        printf("(");
         show_app_list(term);
         printf(")");
     }   

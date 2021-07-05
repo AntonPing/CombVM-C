@@ -18,6 +18,7 @@ typedef struct Parser_t {
         int_t int_v;
         real_t real_v;
         char_t char_v;
+        bool_t bool_v;
         symb_t symb_v;
         string_t string_v;
         Term_t* term_v;
@@ -26,6 +27,37 @@ typedef struct Parser_t {
     char_t* text_base;
     char_t* text_ptr;
 } Parser_t;
+
+void debug_show_parser(Parser_t par, Tag_t tag) {
+    if(par.success) {
+        printf("rest: %s,",par.text_ptr);
+        printf("match:");
+        switch(tag) {
+            case INT:
+                printf("%ld",par.int_v); break;
+            case REAL:
+                printf("%lf",par.real_v); break;
+            case CHAR:
+                printf("%c",par.char_v); break;
+            case BOOL:
+                printf(par.bool_v ? "True" : "False"); break;
+            case SYMB:
+                printf(par.symb_v); break;
+            case LAMB:
+                show_lamb(par.term_v); break;
+            case NIL:
+                printf("Nil"); break;
+            case TERM:
+                show_term(par.term_v); break;
+            default:
+                printf("??"); break;
+        }
+        printf(", success\n");
+    } else {
+        printf("fail\n");
+    }
+}
+
 
 #define PARSER_CHECK(p) \
     if(!p.success) return p
@@ -121,14 +153,14 @@ bool is_space(char_t c) {
     return c == ' ' || c == '\n' || c == '\r' || c == '\t';
 }
 bool is_extended(char_t c) {
-    static char_t extended[] = "+-.*/<=>!?:$%%_&~^";
+    static char_t extended[] = "+-*/<=>!?:$%%_&~^";
     return chr_in_str(c,extended);
 }
 bool is_legal(char_t c) {
     return is_alpha(c) || is_digit(c) || is_extended(c);
 }
 bool is_spec_char(char_t c) {
-    static char_t specs[] = "()[]{};,";
+    static char_t specs[] = "()[]{};,.\\";
     return chr_in_str(c,specs);
 }
 
@@ -268,33 +300,38 @@ Parser_t parse_term(Parser_t par) {
         p3.term_v = term;
         PARSER_SUCCESS(p3);
     }
+    Parser_t p4 = par;
 
+    p4 = parse_char(p4,'\\');
+    //debug_show_parser(p4,CHAR);
+    p4 = parse_symb(p4);
+    //debug_show_parser(p4,SYMB);
+    symb_t x = p4.symb_v;
+    p4 = parse_char(p4,'.');
+    //debug_show_parser(p4,CHAR);
+    p4 = parse_app_list(p4);
+    //debug_show_parser(p4,TERM);
+    Term_t* t = p4.term_v;
+    if(p4.success) {
+        p4.term_v = new_lamb(x,t);
+        PARSER_SUCCESS(p4);
+    }
 
-    
     // no match
     PARSER_FAIL(par);
 }
 
 
-void debug_show_parser(Parser_t par) {
-    if(par.success) {
-        printf("rest: %s,",par.text_ptr);
-        printf("match:");
-        show_term(par.term_v);
-        printf(", success\n");
-    } else {
-        printf("fail\n");
-    }
-}
+
 
 void parser_test() {
     Parser_t par;
-    char* text = "(a;b;c1 c2 c3;d;e)";
+    char* text = "(\\x.\\y.+ x y) 1 2";
     par.success = true;
     par.text_base = text;
     par.text_ptr = text;
     Parser_t p1 = parse_app_list(par);
-    debug_show_parser(p1);
+    debug_show_parser(p1,TERM);
 }
 
 

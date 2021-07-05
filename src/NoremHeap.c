@@ -63,10 +63,12 @@ Term_t* new_symb(symb_t value) {
     return term;
 }
 
-Term_t* new_lambda(symb_t x, Term_t* t) {
+Term_t* new_lamb(symb_t x, Term_t* t) {
     Term_t* term = alloc_term();
     term->tag = &tags[LAMB];
-    term->cons = new_cons(new_symb(x),t);
+    Lambda_t* lamb = malloc(sizeof(Lambda_t));
+    lamb->x = x;
+    lamb->t = t;
+    term->lamb_v = lamb;
     return term;
-
 }
