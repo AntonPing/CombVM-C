@@ -19,20 +19,16 @@ typedef bool bool_t;
 typedef char* symb_t;
 typedef char* string_t;
 
-// global tag pointers
-extern char tags[256];
-
 typedef enum Tag_t {
     INT, REAL, CHAR, BOOL, SYMB,
     I,K,S,B,C,SP,BS,CP,Y,
-    VAR, ABS, APP, ENV,
-    CONS, FUNC, DATA,
+    LAMB,FUNC,CONS,
     NIL, STR
 } Tag_t;
 
 typedef struct Term_t {
     union {
-        char* tag;
+        struct Term_t* tag;
         struct Term_t* t1;
     };
     union {
@@ -41,15 +37,20 @@ typedef struct Term_t {
         char_t char_v;
         bool_t bool_v;
         symb_t symb_v;
+        struct Term_t* cons;
         struct Term_t* t2;
     };
 } Term_t;
+
+// global tag pointers
+extern Term_t tags[256];
 
 //Norem.c
 void show_term(Term_t* term);
 
 //NoremHeap.c
 Term_t* new_app(Term_t* t1, Term_t* t2);
+Term_t* new_cons(Term_t* t1, Term_t* t2);
 Term_t* new_int(int_t value);
 Term_t* new_real(real_t value);
 Term_t* new_char(char_t value);

@@ -30,12 +30,6 @@ typedef struct Parser_t {
 #define PARSER_CHECK(p) \
     if(!p.success) return p
 
-#define PARSER_CUT(p) \
-    if(p.success) return p
-
-#define PARSER_BIND(p1,p2) \
-    p2.success ? p2 : p1
-
 #define PARSER_FAIL(p) \
     p.success = false; \
     return p
@@ -220,17 +214,14 @@ Parser_t parse_app_list(Parser_t par);
 
 Parser_t parse_app_list(Parser_t par) {
     PARSER_CHECK(par);
-    // start with '('
-    par = parse_char(par,'(');
-    par = parse_any_space(par);
     // minimal - one term
     par = parse_term(par);
-    PARSER_CHECK(par);
     Term_t* with = par.term_v;
+    PARSER_CHECK(par);
     // read term until fail
-    Parser_t p1;
+    Parser_t p1,p2;
     while(true) {
-        p1 = parse_some_space(par);
+        p1 = parse_any_space(par);
         p1 = parse_term(p1);
         if(p1.success) {
             with = new_app(with, p1.term_v);
@@ -239,13 +230,18 @@ Parser_t parse_app_list(Parser_t par) {
             break;
         }
     }
-    // end with ')'
-    par = parse_any_space(par);
-    par = parse_char(par,')');
-    // return term
-    PARSER_CHECK(par);
-    par.term_v = with;
-    PARSER_SUCCESS(par);
+    
+    p2 = parse_any_space(par);
+    p2 = parse_char(p2,';');
+    if(p2.success) { // semicolon notation!
+        p2 = parse_app_list(p2);
+        PARSER_CHECK(p2);
+        p2.term_v = new_app(with,p2.term_v);
+        PARSER_SUCCESS(p2);
+    } else { // return term
+        par.term_v = with;
+        PARSER_SUCCESS(par);
+    }
 }
 
 
@@ -261,6 +257,20 @@ Parser_t parse_term(Parser_t par) {
         p2.term_v = new_symb(p2.symb_v);
         PARSER_SUCCESS(p2);
     }
+    Parser_t p3 = par;
+    p3 = parse_char(p3,'(');
+    p3 = parse_any_space(p3);
+    p3 = parse_app_list(p3);
+    Term_t* term = p3.term_v;
+    p3 = parse_any_space(p3);
+    p3 = parse_char(p3,')');
+    if(p3.success) {
+        p3.term_v = term;
+        PARSER_SUCCESS(p3);
+    }
+
+
+    
     // no match
     PARSER_FAIL(par);
 }
@@ -279,12 +289,11 @@ void debug_show_parser(Parser_t par) {
 
 void parser_test() {
     Parser_t par;
-    char* text = "(dw dc)";
+    char* text = "(a;b;c1 c2 c3;d;e)";
     par.success = true;
     par.text_base = text;
     par.text_ptr = text;
     Parser_t p1 = parse_app_list(par);
-    printf("here16\n");
     debug_show_parser(p1);
 }
 

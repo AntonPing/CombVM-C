@@ -1,13 +1,16 @@
 #include "Norem.h"
 
-char tags[256];
+Term_t tags[256];
 
-bool is_atom(Term_t* term) {
-    return term->tag >= &tags[0] && term->tag <= &tags[255];
+
+bool is_tag(Term_t* term) {
+    return term >= &tags[0] && term <= &tags[255];
 }
-
+bool is_atom(Term_t* term) {
+    return is_tag(term) || is_tag(term->tag);
+}
 bool is_cons(Term_t* term) {
-    return term->tag < &tags[0] || term->tag > &tags[255];
+    return !is_tag(term) && !is_tag(term->tag);
 }
 
 void show_term(Term_t* term);
@@ -24,14 +27,23 @@ void show_app_list(Term_t* term) {
     }
 }
 
+
+void show_lambda(Term_t* term) {
+    assert(term->tag == &tags[LAMB]);
+    assert(term->cons->t1->tag == &tags[SYMB]);
+    printf("λ%s.",term->cons->t1->symb_v);
+    show_term(term->cons->t2);
+}
+
+
 void show_term(Term_t* term) {
     if(term == NULL) {
-        printf("NULL\n");
+        printf("<NULL>\n");
         return;
-    }
-    printf("here17\n");
-    if(is_atom(term)) {
-        printf("here18\n");
+    } else if(is_tag(term)) {
+        printf("<tag%ld>",term - &tags[0]);
+        return;
+    } else if(is_tag(term->tag)) {
         switch(term->tag - &tags[0]) {
             case INT:
                 printf("%ld",term->int_v);
@@ -47,6 +59,9 @@ void show_term(Term_t* term) {
                 return;
             case SYMB:
                 printf(term->symb_v);
+                return;
+            case LAMB:
+                show_lambda(term);
                 return;
             case NIL:
                 printf("Nil");
