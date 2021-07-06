@@ -20,10 +20,11 @@ typedef char* symb_t;
 typedef char* string_t;
 
 typedef enum Tag_t {
-    INT, REAL, CHAR, BOOL, SYMB,
-    I,K,S,B,C,SP,BS,CP,Y,
-    LAMB,FUNC,CONS,TERM,
-    NIL, STR
+    INT=0, REAL, CHAR, BOOL, SYMB,
+    LAMB, FUNC, CONS, TERM, STR,
+
+    I=100,K,S,B,C,SP,BS,CP,Y,
+    NIL,
 } Tag_t;
 
 struct Term_t;
@@ -52,11 +53,21 @@ typedef struct Term_t {
 // global tag pointers
 extern Term_t tags[256];
 
-//Norem.c
+// Norem.c
+bool is_tag(Term_t* term);
 void show_term(Term_t* term);
 void show_lamb(Term_t* term);
 
-//NoremHeap.c
+// NoremCompile.c
+bool is_tag(Term_t* term);
+bool is_singleton(Term_t* term);
+bool is_atom(Term_t* term);
+bool is_app(Term_t* term);
+bool is_var(Term_t* term);
+bool is_lambda(Term_t* term);
+Term_t* ski_compile(Term_t* term);
+
+// NoremHeap.c
 Term_t* new_app(Term_t* t1, Term_t* t2);
 Term_t* new_cons(Term_t* t1, Term_t* t2);
 Term_t* new_int(int_t value);
@@ -66,10 +77,10 @@ Term_t* new_bool(bool_t value);
 Term_t* new_symb(symb_t value);
 Term_t* new_lamb(symb_t x, Term_t* t);
 
-//NoremParse.c
+// NoremParse.c
 void parser_test();
 
-//NoremSymb.c
+// NoremSymb.c
 symb_t to_symb(char_t* str);
 string_t substr(string_t str, size_t n);
 

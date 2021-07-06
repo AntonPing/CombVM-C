@@ -301,7 +301,6 @@ Parser_t parse_term(Parser_t par) {
         PARSER_SUCCESS(p3);
     }
     Parser_t p4 = par;
-
     p4 = parse_char(p4,'\\');
     //debug_show_parser(p4,CHAR);
     p4 = parse_symb(p4);
@@ -331,7 +330,9 @@ void parser_test() {
     par.text_base = text;
     par.text_ptr = text;
     Parser_t p1 = parse_app_list(par);
-    debug_show_parser(p1,TERM);
+    //debug_show_parser(p1,TERM);
+    Term_t* res = ski_compile(p1.term_v);
+    show_term(res);
 }
 
 

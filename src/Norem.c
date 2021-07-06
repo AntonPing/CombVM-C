@@ -2,17 +2,6 @@
 
 Term_t tags[256];
 
-
-bool is_tag(Term_t* term) {
-    return term >= &tags[0] && term <= &tags[255];
-}
-bool is_atom(Term_t* term) {
-    return is_tag(term) || is_tag(term->tag);
-}
-bool is_cons(Term_t* term) {
-    return !is_tag(term) && !is_tag(term->tag);
-}
-
 void show_term(Term_t* term);
 void show_app_list(Term_t* term);
 
@@ -55,6 +44,12 @@ void show_term(Term_t* term) {
     } else if(is_tag(term)) {
         printf("<tag%ld>",term - &tags[0]);
         return;
+    } else if(is_singleton(term)) {
+        switch(term - &tags[0]) {
+            case S: printf("S"); return;
+            case K: printf("K"); return;
+            case I: printf("I"); return;
+        }
     } else if(is_tag(term->tag)) {
         switch(term->tag - &tags[0]) {
             case INT:
@@ -79,11 +74,13 @@ void show_term(Term_t* term) {
                 printf("Nil");
                 return;
         }
-    } else {
+    } else if(is_app(term)) {
         printf("(");
         show_app_list(term);
         printf(")");
-    }   
+    } else {
+        printf("??");
+    }
 }
 
 
