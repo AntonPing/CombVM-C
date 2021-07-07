@@ -17,9 +17,10 @@ $(TARGET) : $(OBJS)
 $(DIR_OBJ)/%.o : ${DIR_SRC}/%.c
 	$(CC) $(CFLAGS) -c $< -o $@
 
-testt:
-	@echo $(SRCS)
-	@echo $(OBJS)
+
+debug: $(OBJS)
+	$(CC) $(OBJS) -o $(TARGET) -D DEBUG
+
 
 run: $(TARGET)
 	@$(TARGET)

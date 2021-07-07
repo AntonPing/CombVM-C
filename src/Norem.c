@@ -3,21 +3,8 @@
 Term_t tags[256];
 
 void show_term(Term_t* term);
-void show_app_list(Term_t* term);
-
-void show_app_list(Term_t* term) {
-    if(is_atom(term)) {
-        show_term(term);
-    } else {
-        show_app_list(term->t1);
-        printf(" ");
-        show_term(term->t2);
-    }
-}
-
 void show_lamb(Term_t* term);
-void show_term(Term_t* term);
-
+void show_app_list(Term_t* term);
 
 void show_lamb(Term_t* term) {
     assert(term->tag == &tags[LAMB]);
@@ -49,6 +36,9 @@ void show_term(Term_t* term) {
             case S: printf("S"); return;
             case K: printf("K"); return;
             case I: printf("I"); return;
+            case ADDI: printf("+"); return;
+            case PRINTI: printf("print"); return;
+            case EXIT: printf("EXIT"); return;
         }
     } else if(is_tag(term->tag)) {
         switch(term->tag - &tags[0]) {
@@ -78,11 +68,19 @@ void show_term(Term_t* term) {
         printf("(");
         show_app_list(term);
         printf(")");
-    } else {
-        printf("??");
     }
+    printf("??");
 }
 
+void show_app_list(Term_t* term) {
+    if(is_atom(term)) {
+        show_term(term);
+    } else {
+        show_app_list(term->t1);
+        printf(" ");
+        show_term(term->t2);
+    }
+}
 
 int main() {
     printf("hello\n");

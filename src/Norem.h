@@ -11,19 +11,35 @@
 #include <setjmp.h>
 #include <assert.h>
 #include <ctype.h>
+#include <uchar.h>
 
-typedef uint64_t int_t;
+typedef int64_t int_t;
 typedef double real_t;
 typedef char char_t;
 typedef bool bool_t;
 typedef char* symb_t;
 typedef char* string_t;
 
+
+#define PANIC(format, args...) \
+    printf("PANIC: "); \
+    printf(format, ##args); \
+    exit(1)
+
+#ifdef DEBUG
+    #define DEBUG_LOG(format, args...) \
+        printf(format, ##args)
+#else
+    #define DEBUG_LOG(format, args...)
+#endif
+
+
 typedef enum Tag_t {
     INT=0, REAL, CHAR, BOOL, SYMB,
     LAMB, FUNC, CONS, TERM, STR,
 
     I=100,K,S,B,C,SP,BS,CP,Y,
+    ADDI,PRINTI,EXIT,
     NIL,
 } Tag_t;
 

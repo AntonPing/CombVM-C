@@ -22,13 +22,14 @@ typedef struct Parser_t {
         symb_t symb_v;
         string_t string_v;
         Term_t* term_v;
-        // to be continued....
+        char_t* message;
+        // to be continued...
     };
     char_t* text_base;
     char_t* text_ptr;
 } Parser_t;
 
-void debug_show_parser(Parser_t par, Tag_t tag) {
+void DEBUG_SHOW_PARSER(Parser_t par, Tag_t tag) {
     if(par.success) {
         printf("rest: %s,",par.text_ptr);
         printf("match:");
@@ -54,16 +55,18 @@ void debug_show_parser(Parser_t par, Tag_t tag) {
         }
         printf(", success\n");
     } else {
-        printf("fail\n");
+        printf("fail: %s\n", par.message);
     }
 }
 
-
+#define __PARSER_DEBUG__
 #define PARSER_CHECK(p) \
     if(!p.success) return p
 
-#define PARSER_FAIL(p) \
+#define PARSER_FAIL(p,msg) \
+    p.text_ptr = par.text_ptr; \
     p.success = false; \
+    p.message = msg; \
     return p
 
 #define PARSER_SUCCESS(p) \
@@ -73,9 +76,9 @@ void debug_show_parser(Parser_t par, Tag_t tag) {
 Parser_t end_of_text(Parser_t par) {
     PARSER_CHECK(par);
     if(par.text_ptr[0] == '\0') {
-        PARSER_SUCCESS(par);   
+        PARSER_SUCCESS(par);
     } else {
-        PARSER_FAIL(par);
+        PARSER_FAIL(par,"end_of_text failed.");
     }
 }
 
@@ -86,7 +89,7 @@ Parser_t read_char(Parser_t par) {
         par.text_ptr ++;
         PARSER_SUCCESS(par);
     } else {
-        PARSER_FAIL(par);
+        PARSER_FAIL(par,"read_char failed.");
     }
 }
 
@@ -97,7 +100,7 @@ Parser_t parse_char(Parser_t par, char_t c) {
     if(p1.char_v == c) {
         PARSER_SUCCESS(p1);
     } else {
-        PARSER_FAIL(p1);
+        PARSER_FAIL(p1,"parse_char failed.");
     }
 }
 
@@ -108,7 +111,7 @@ Parser_t char_satisify(Parser_t par, bool (*fun) (char_t)) {
     if(fun(p1.char_v)) {
         PARSER_SUCCESS(p1);
     } else {
-        PARSER_FAIL(p1);
+        PARSER_FAIL(p1,"char_satisfity failed.");
     }
 }
 
@@ -117,7 +120,7 @@ Parser_t read_string(Parser_t par, size_t len) {
     char_t* str = substr(par.text_ptr,len);
     if(strlen(str) < len) {
         free(str);
-        PARSER_FAIL(par);
+        PARSER_FAIL(par,"read_string failed.");
     } else {
         par.string_v = str;
         par.text_ptr += len;
@@ -132,7 +135,7 @@ Parser_t parse_string(Parser_t par, string_t str) {
     if(strcmp(p1.string_v,str) == 0) {
         PARSER_SUCCESS(p1);
     } else {
-        PARSER_FAIL(p1);
+        PARSER_FAIL(p1,"parse_string failed.");
     }
 }
 
@@ -165,7 +168,12 @@ bool is_spec_char(char_t c) {
 }
 
 Parser_t parse_digit(Parser_t par) {
-    return char_satisify(par,is_digit);
+    Parser_t p1 = char_satisify(par,is_digit);
+    if(p1.success) {
+        PARSER_SUCCESS(p1);
+    } else {
+        PARSER_FAIL(p1,"char_satisfity failed.");
+    }
 }
 
 Parser_t parse_unsigned_int(Parser_t par) {
@@ -173,7 +181,7 @@ Parser_t parse_unsigned_int(Parser_t par) {
     // minimal - one digit
     char* ptr = par.text_ptr;
     if(!is_digit(*ptr)) {
-        PARSER_FAIL(par);
+        PARSER_FAIL(par,"parse_unsigned_int failed.");
     }
     // read digits until fail
     int_t value = *ptr++ - '0';
@@ -207,15 +215,17 @@ Parser_t parse_symb(Parser_t par) {
     // minimal - one legal
     char* ptr = par.text_ptr;
     if(!is_legal(*ptr)) {
-        PARSER_FAIL(par);
+        PARSER_FAIL(par,"parse_symb failed.");
     }
     // read legal until fail
     while(is_legal(*ptr)) {
         ptr ++;
     }
     string_t res = substr(par.text_ptr, ptr - par.text_ptr);
+    printf("symbol! %s111\n",res);
     par.text_ptr = ptr;
     par.symb_v = to_symb(res);
+    //free(res);
     PARSER_SUCCESS(par);
 }
 
@@ -223,6 +233,7 @@ Parser_t parse_any_space(Parser_t par) {
     PARSER_CHECK(par);
     char* ptr = par.text_ptr;
     while(is_space(*ptr)) {
+        par.char_v = *ptr;
         ptr ++;
     }
     par.text_ptr = ptr;
@@ -234,7 +245,7 @@ Parser_t parse_some_space(Parser_t par) {
     // minimal - one space
     char* ptr = par.text_ptr;
     if(!is_space(*ptr)) {
-        PARSER_FAIL(par);
+        PARSER_FAIL(par,"parse_some_space failed.");
     }
     return parse_any_space(par);
 }
@@ -243,13 +254,14 @@ Parser_t parse_some_space(Parser_t par) {
 Parser_t parse_term(Parser_t par);
 Parser_t parse_app_list(Parser_t par);
 
-
 Parser_t parse_app_list(Parser_t par) {
     PARSER_CHECK(par);
     // minimal - one term
     par = parse_term(par);
     Term_t* with = par.term_v;
-    PARSER_CHECK(par);
+    if(!par.success) {
+        PARSER_FAIL(par,"parse_app_list failed.");
+    }
     // read term until fail
     Parser_t p1,p2;
     while(true) {
@@ -262,7 +274,7 @@ Parser_t parse_app_list(Parser_t par) {
             break;
         }
     }
-    
+    // semicolon
     p2 = parse_any_space(par);
     p2 = parse_char(p2,';');
     if(p2.success) { // semicolon notation!
@@ -276,283 +288,99 @@ Parser_t parse_app_list(Parser_t par) {
     }
 }
 
+Parser_t parse_operator(Parser_t par) {
+    PARSER_CHECK(par);
+    
+    // minimal - one non-space
+    char* ptr = par.text_ptr;
+    if(is_space(*ptr)) {
+        PARSER_FAIL(par,"parse_operator failed.");
+    }
+    // read non-space until fail
+    while(!is_space(*ptr)) {
+        ptr ++;
+    }
+    string_t res = substr(par.text_ptr, ptr - par.text_ptr);
+    par.text_ptr = ptr;
+
+    if(strcmp(res,"+") == 0) {
+        par.term_v = &tags[ADDI];
+        PARSER_SUCCESS(par);
+    } else if(strcmp(res,"printi") == 0) {
+        par.term_v = &tags[PRINTI];
+        PARSER_SUCCESS(par);
+    } else if(strcmp(res,"exit") == 0) {
+        par.term_v = &tags[EXIT];
+        PARSER_SUCCESS(par);
+    } else {
+        PARSER_FAIL(par,"parse_operator failed.");
+    }
+}
 
 Parser_t parse_term(Parser_t par) {
     PARSER_CHECK(par);
-    Parser_t p1 = parse_int(par);
+    Parser_t p1;
+
+    p1 = parse_operator(par);
     if(p1.success) {
+        DEBUG_SHOW_PARSER(p1,TERM);
+        PARSER_SUCCESS(p1);
+    }
+
+    p1 = parse_int(par);
+    if(p1.success) {
+        DEBUG_SHOW_PARSER(p1,INT);
         p1.term_v = new_int(p1.int_v);
         PARSER_SUCCESS(p1);
     }
-    Parser_t p2 = parse_symb(par);
-    if(p2.success) {
-        p2.term_v = new_symb(p2.symb_v);
-        PARSER_SUCCESS(p2);
+
+    p1 = parse_symb(par);
+    if(p1.success) {
+        DEBUG_SHOW_PARSER(p1,SYMB);
+        p1.term_v = new_symb(p1.symb_v);
+        PARSER_SUCCESS(p1);
     }
-    Parser_t p3 = par;
-    p3 = parse_char(p3,'(');
-    p3 = parse_any_space(p3);
-    p3 = parse_app_list(p3);
-    Term_t* term = p3.term_v;
-    p3 = parse_any_space(p3);
-    p3 = parse_char(p3,')');
-    if(p3.success) {
-        p3.term_v = term;
-        PARSER_SUCCESS(p3);
+
+    p1 = parse_char(par,'(');
+    p1 = parse_any_space(p1);
+    p1 = parse_app_list(p1);
+    Term_t* term = p1.term_v;
+    p1 = parse_any_space(p1);
+    p1 = parse_char(p1,')');
+    if(p1.success) {
+        p1.term_v = term;
+        DEBUG_SHOW_PARSER(p1,TERM);
+        PARSER_SUCCESS(p1);
     }
-    Parser_t p4 = par;
-    p4 = parse_char(p4,'\\');
-    //debug_show_parser(p4,CHAR);
-    p4 = parse_symb(p4);
-    //debug_show_parser(p4,SYMB);
-    symb_t x = p4.symb_v;
-    p4 = parse_char(p4,'.');
-    //debug_show_parser(p4,CHAR);
-    p4 = parse_app_list(p4);
-    //debug_show_parser(p4,TERM);
-    Term_t* t = p4.term_v;
-    if(p4.success) {
-        p4.term_v = new_lamb(x,t);
-        PARSER_SUCCESS(p4);
+
+    p1 = parse_char(par,'\\');
+    p1 = parse_symb(p1);
+    symb_t x = p1.symb_v;
+    p1 = parse_char(p1,'.');
+    p1 = parse_any_space(p1);
+    p1 = parse_app_list(p1);
+    Term_t* t = p1.term_v;
+    if(p1.success) {
+        p1.term_v = new_lamb(x,t);
+        DEBUG_SHOW_PARSER(p1,TERM);
+        PARSER_SUCCESS(p1);
     }
 
     // no match
-    PARSER_FAIL(par);
+    PARSER_FAIL(par,"parse_term failed.");
 }
-
 
 
 
 void parser_test() {
     Parser_t par;
-    char* text = "(\\x.\\y.+ x y) 1 2";
+    char* text = "(\\x.\\y. + x y) 1 2";
     par.success = true;
     par.text_base = text;
     par.text_ptr = text;
     Parser_t p1 = parse_app_list(par);
-    //debug_show_parser(p1,TERM);
-    Term_t* res = ski_compile(p1.term_v);
-    show_term(res);
-}
-
-
-
-/*
-Term_t* read_symb() {
-    char_t* old_ptr = text_ptr;
-
-    // minimal - one letter
-    if(is_legal_char(*text_ptr)) {
-        text_next();
-    } else {
-        text_ptr = old_ptr;
-        printf("failed : %c\n",*text_ptr);
-        return NULL;
-    }
-    // more letters
-    while(is_legal_char(*text_ptr)) {
-        text_next();
-    }
-    // make and return
-    printf("match! ");
-    show_term(Symb(make_symb(old_ptr,text_ptr-1)));
-    printf("\n");
-    return Var(make_symb(old_ptr,text_ptr-1));
-}
-
-Term_t* read_lambda();
-
-Term_t* read_apply_list() {
-    Term_t* result;
-    Term_t* temp;
-    printf("app_list: %s\n",text_ptr);
-
-    // first may be term
-    eat_space();
-    result = read_term();
-    if(result == NULL) {
-        // or a lambda
-        if(*text_ptr == '\\') {
-            result = read_lambda();
-            if(result == NULL) {
-                return NULL;
-            } else {
-                return result;
-            }
-        } else {
-            return NULL;
-        }
-    }
-
-    // more terms
-    while(true) {
-        //printf("loop:%s\n",text_ptr);
-        eat_space();
-        //printf("eat:%s\n",text_ptr);
-
-        if(*text_ptr == ')' || *text_ptr == '\0') {
-            return result;
-        }
-        // semicolon
-        if(*text_ptr == ';') {
-            text_next();
-            temp = read_apply_list();
-            if(temp == NULL) {
-                return NULL;
-            } else {
-                return App(result,temp);
-            }   
-        }
-        // try lambda
-        if(*text_ptr == '\\') {
-            temp = read_lambda();
-            if(temp == NULL) {
-                return NULL;
-            } else {
-                return App(result,temp);
-            }
-        }
-
-        temp = read_term();
-        if(temp == NULL) {
-            return NULL;
-        } else {
-            result = App(result,temp);
-            continue;
-        }   
-    }
-}
-
-bool read_char(char_t c) {
-    if(*text_ptr == c) {
-        text_next();
-        return true;
-    } else {
-        return false;
-    }
-}
-
-
-Term_t* read_lambda() {
-    Term_t* result;
-    Term_t* temp;
-    char_t* old_ptr = text_ptr;
     
-    printf("lambda: %s\n",text_ptr);
-
-    // first term
-    eat_space();
-
-    // match '\'
-    if(*text_ptr != '\\') {
-        text_ptr = old_ptr;
-        return NULL;
-    } else {
-        text_next();
-    }
-    
-    // match a symb
-    Term_t* var = read_symb();
-    if(var == NULL) {
-        text_ptr = old_ptr;
-        return NULL;
-    }
-
-    // match '.'
-    if(*text_ptr != '.') {
-        text_ptr = old_ptr;
-        return NULL;
-    } else {
-        text_next();
-    }
-
-    // match a term
-    Term_t* term = read_apply_list();
-    if(term == NULL) {
-        text_ptr = old_ptr;
-        return NULL;
-    }
-
-    return Abs(var->as_symb,term);
+    DEBUG_SHOW_PARSER(p1,TERM);
+    //Term_t* res = ski_compile(p1.term_v);
+    //show_term(res);
 }
-
-Term_t* read_debug_term() {
-    Term_t* result;
-    char_t* old_ptr = text_ptr;
-    eat_space();
-
-    if(*text_ptr != '`') {
-        text_ptr = old_ptr;
-        return NULL;
-    } else {
-        text_next();
-    }
-
-    result = read_term();
-    if(result == NULL) {
-        text_ptr = old_ptr;
-        return NULL;
-    } else {
-        return Debug(result);
-    }
-}
-
-Term_t* read_term() {
-    char_t* old_ptr;
-    Term_t* result;
-    printf("term: %s\n",text_ptr);
-
-    old_ptr = text_ptr;
-    eat_space();
-    // try app_list
-    if(*text_ptr == '(') {
-        text_next();
-        result = read_apply_list();
-        if(result == NULL) {
-            return NULL;
-        }
-        if(*text_ptr == ')') {
-            text_next();
-            return result;
-        } else {
-            return NULL;
-        }
-    }
-    
-    // try debug_term
-    result = read_debug_term();
-    if(result != NULL) { return result; }
-
-    // try int
-    result = read_int();
-    if(result != NULL) { return result; }
-
-    // try symb
-    result = read_symb();
-    //printf("try symb: ");
-    //show_term(result);
-    if(result != NULL) { return result; }
-    
-    // no match
-    return NULL;
-}
-
-Term_t* compile(char_t* text) {
-    char_t* rest;
-    Term_t* result;
-    text_base = text;
-    text_ptr = text;
-    result = read_apply_list();
-    
-    eat_space();
-    if(*text_ptr == '\0') {
-        return result;
-    } else {
-        printf("parse failed!\n");
-        printf(text_ptr);
-        printf("\n");
-        return NULL;
-    }
-}
-
-*/
