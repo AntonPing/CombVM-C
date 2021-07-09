@@ -14,7 +14,7 @@ string_t substr(string_t str, size_t n) {
 
 //string_t concat()
 symb_t append_symb(char_t* str) {
-    DEBUG_LOG("new symbol: %s\n",str);
+    DBG("new symbol: %s\n",str);
     if(symb_ptr > symb_ceil) {
         PANIC("symbol table overflow!\n");
         return NULL; // symbol table overflow
@@ -30,7 +30,7 @@ symb_t to_symb(char_t* str) {
     symb_t* ptr;
     for(ptr = symb_base; ptr < symb_ptr; ptr ++) {
         if(strcmp(*ptr,str) == 0) {
-            DEBUG_LOG("found symbol: %s\n",str);
+            DBG("found symbol: %s\n",str);
             return *ptr;
         }
     }

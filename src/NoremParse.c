@@ -12,6 +12,11 @@
 | (x -> t)
 */
 
+
+
+
+
+
 typedef struct Parser_t {
     bool success;
     union {
@@ -28,6 +33,10 @@ typedef struct Parser_t {
     char_t* text_base;
     char_t* text_ptr;
 } Parser_t;
+
+
+
+
 
 void DEBUG_SHOW_PARSER(Parser_t par, Tag_t tag) {
     if(par.success) {

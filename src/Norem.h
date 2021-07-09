@@ -20,18 +20,20 @@ typedef bool bool_t;
 typedef char* symb_t;
 typedef char* string_t;
 
-
-#define PANIC(format, args...) \
-    printf("PANIC: "); \
-    printf(format, ##args); \
-    exit(1)
-
 #ifdef DEBUG
-    #define DEBUG_LOG(format, args...) \
-        printf(format, ##args)
+#define DBG(...) do{ \
+    fprintf(stderr, "[DEBUG]%s %s(Line %d): ",__FILE__,__FUNCTION__,__LINE__); \
+    fprintf(stderr, __VA_ARGS__); \
+} while(0)
 #else
-    #define DEBUG_LOG(format, args...)
+#define DBG(...)    
 #endif
+
+#define PANIC(...) do{ \
+    fprintf(stderr, "[PANIC]%s %s(Line %d): ",__FILE__,__FUNCTION__,__LINE__); \
+    fprintf(stderr, __VA_ARGS__); \
+    exit(1); \
+} while(0)
 
 
 typedef enum Tag_t {
