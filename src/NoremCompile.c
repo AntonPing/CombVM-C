@@ -80,3 +80,22 @@ Term_t* ski_compile(Term_t* term) {
     printf("impossible!\n");
     return NULL;
 }
+
+
+struct Cover_t {
+    
+
+
+}
+
+Term_t* func_linking(Term_t* term) {
+    if(term->tag == &tags[SYMB]) {
+
+
+    }
+
+
+
+
+
+}

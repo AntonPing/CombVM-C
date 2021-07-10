@@ -91,7 +91,6 @@ Term_t* eval(Term_t* term) {
                 assert(a->tag == &tags[INT]);
                 assert(b->tag == &tags[INT]);
                 z = new_int(a->int_v + b->int_v);
-                printf("add result %ld\n",z->int_v);
                 NEXT(z);
             case PRINTI:
                 POP_2(x,y);

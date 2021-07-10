@@ -89,10 +89,51 @@ void show_app_list(Term_t* term) {
     }
 }
 
+void repl() {
+    static char input[2048];
+
+    /* Print Version and Exit Information */
+    puts("Norem Repl Version 0.1");
+    puts("Type :quit to Exit\n");
+
+    while(true) {
+        fputs("> ", stdout);
+        fgets(input, 2048, stdin);
+        // delete the last \n in input
+        input[strlen(input) - 1] = '\0';
+
+
+        if(input[0] == ':') {
+            if(strcmp(input,":quit") == 0) {
+                puts("Goodbye!");
+                return;
+            } else {
+                puts("Error: Unknown command!");
+            }
+        } else {
+            Term_t* term = parse(input);
+            if(term == NULL) {
+                puts("Parser Error!");
+            } else {
+                term = ski_compile(term);
+                term = eval(term);
+                printf("result: ");
+                show_term(term);
+                printf("\n");
+            }
+            
+            
+        }
+    }
+}
+
+
 int main() {
     printf("hello\n");
+    repl();
+    /*
     char* text = "(\\x.\\y. + x y) 1 2";
-    Term_t* result = parse(text);
+    
     if(result != NULL) {
         printf("\n");
         show_term(result);
@@ -108,6 +149,6 @@ int main() {
     result = eval(result);
 
     show_term(result);
-
+    */
     return 0;
 }

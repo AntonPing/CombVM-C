@@ -42,7 +42,10 @@ typedef enum Tag_t {
     LAMB, FUNC, CONS, TERM, STR,
 
     I=100,K,S,B,C,SP,BS,CP,Y,
-    ADDI,PRINTI,EXIT,
+    ADDI,
+    //ALLOC,FREE,
+    //READI,WRITEI
+    PRINTI,EXIT,
     NIL,
 } Tag_t;
 

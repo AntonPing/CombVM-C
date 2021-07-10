@@ -20,12 +20,11 @@ string_t slice(char_t* start, char_t* end) {
     return res;
 }
 
-
 //string_t concat()
 symb_t append_symb(char_t* str) {
-    DBG("new symbol: %s\n",str);
+    //DBG("new symbol: %s\n",str);
     if(symb_ptr > symb_ceil) {
-        PANIC("symbol table overflow!\n");
+        //PANIC("symbol table overflow!\n");
         return NULL; // symbol table overflow
     } else {
         symb_t symb = malloc(sizeof(char) * strlen(str));
@@ -39,9 +38,62 @@ symb_t to_symb(char_t* str) {
     symb_t* ptr;
     for(ptr = symb_base; ptr < symb_ptr; ptr ++) {
         if(strcmp(*ptr,str) == 0) {
-            DBG("found symbol: %s\n",str);
+            //DBG("found symbol: %s\n",str);
             return *ptr;
         }
     }
     return append_symb(str);
+}
+
+
+
+/*
+typedef struct Module_t {
+    symb_t name;
+    size_t cap;
+    size_t size;
+    union {
+        Term_t* term;
+        Module_t* list;
+    }
+}
+*/
+
+static symb_t dict_key[2048];
+static Term_t* dict_value[2048];
+static size_t dict_index;
+
+Term_t* dict_get_value(symb_t key) {
+    for(size_t i = 0; i < dict_index; i++) {
+        if(dict_key[i] == key) {
+            return dict_value[i];
+        }
+    }
+    return NULL;
+}
+
+bool dict_update(symb_t key, Term_t* value) {
+    for(size_t i = 0; i < dict_index; i++) {
+        if(dict_key[i] == key) {
+            dict_value[i] = value;
+            return false;
+        }
+    }
+    dict_key[dict_index] = key;
+    dict_value[dict_index] = value;
+    dict_index ++;
+    return true;
+}
+
+bool dict_new_key(symb_t key, Term_t* value) {
+    for(size_t i = 0; i < dict_index; i++) {
+        if(dict_key[i] == key) {
+            DBG("key already exist!\n");
+            return false;
+        }
+    }
+    dict_key[dict_index] = key;
+    dict_value[dict_index] = value;
+    dict_index ++;
+    return true;
 }

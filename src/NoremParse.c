@@ -328,8 +328,10 @@ Parser_t parse_app_list(Parser_t par) {
         }
     }
     // semicolon
+    printf("trysemi\n");
     p2 = parse_any_space(par);
     p2 = parse_char(p2,';');
+    p2 = parse_any_space(p2);
     if(p2.success) { // semicolon notation!
         p2 = parse_app_list(p2);
         PARSER_START(p2);
@@ -349,7 +351,7 @@ Parser_t parse_operator(Parser_t par) {
         PARSER_FAIL(par);
     }
     // read non-space until fail
-    while(!is_space(*ptr)) {
+    while(!is_space(*ptr) && *ptr != '\0') {
         ptr ++;
     }
     string_t res = slice(par.text_ptr, ptr - 1);
@@ -379,20 +381,17 @@ Parser_t parse_term(Parser_t par) {
 
     p1 = parse_operator(par);
     if(p1.success) {
-        DEBUG_SHOW_PARSER(p1,TERM);
         PARSER_SUCCESS(p1);
     }
 
     p1 = parse_int(par);
     if(p1.success) {
-        DEBUG_SHOW_PARSER(p1,INT);
         p1.term_v = new_int(p1.int_v);
         PARSER_SUCCESS(p1);
     }
 
     p1 = parse_symb(par);
     if(p1.success) {
-        DEBUG_SHOW_PARSER(p1,SYMB);
         p1.term_v = new_symb(p1.symb_v);
         PARSER_SUCCESS(p1);
     }
@@ -405,7 +404,6 @@ Parser_t parse_term(Parser_t par) {
     p1 = parse_char(p1,')');
     if(p1.success) {
         p1.term_v = term;
-        DEBUG_SHOW_PARSER(p1,TERM);
         PARSER_SUCCESS(p1);
     }
 
@@ -418,7 +416,6 @@ Parser_t parse_term(Parser_t par) {
     Term_t* t = p1.term_v;
     if(p1.success) {
         p1.term_v = new_lamb(x,t);
-        DEBUG_SHOW_PARSER(p1,TERM);
         PARSER_SUCCESS(p1);
     }
 
