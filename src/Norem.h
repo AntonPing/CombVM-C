@@ -21,8 +21,6 @@ typedef bool bool_t;
 typedef char* symb_t;
 typedef char* string_t;
 
-
-
 #ifdef DEBUG
 #define DBG(...) do{ \
     fprintf(stderr, "[DEBUG]%s %s(Line %d): ",__FILE__,__FUNCTION__,__LINE__); \
@@ -104,5 +102,6 @@ void parser_test();
 // NoremSymb.c
 symb_t to_symb(char_t* str);
 string_t substr(string_t str, size_t n);
+string_t slice(char_t* start, char_t* end);
 
 #endif

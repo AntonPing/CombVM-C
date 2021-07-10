@@ -39,6 +39,9 @@ void show_term(Term_t* term) {
             case ADDI: printf("+"); return;
             case PRINTI: printf("print"); return;
             case EXIT: printf("EXIT"); return;
+            case NIL: printf("Nil"); return;
+            default: printf("<Op?>"); return;
+                //PANIC("unknown operator %ld",term - &tags[0]);
         }
     } else if(is_tag(term->tag)) {
         switch(term->tag - &tags[0]) {
@@ -63,22 +66,26 @@ void show_term(Term_t* term) {
             case NIL:
                 printf("Nil");
                 return;
+            default:
+                PANIC("unknown tag");
         }
     } else if(is_app(term)) {
         printf("(");
         show_app_list(term);
         printf(")");
+        return ;
+    } else {
+        printf("??");
     }
-    printf("??");
 }
 
 void show_app_list(Term_t* term) {
-    if(is_atom(term)) {
-        show_term(term);
-    } else {
+    if(is_app(term)) {
         show_app_list(term->t1);
         printf(" ");
         show_term(term->t2);
+    } else {
+        show_term(term);
     }
 }
 

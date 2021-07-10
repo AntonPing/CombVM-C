@@ -5,12 +5,21 @@ static symb_t* symb_ceil = &symb_base[2047];
 static symb_t* symb_ptr = &symb_base[0];
 
 
-string_t substr(string_t str, size_t n) {
-    char_t* res = malloc(sizeof(char_t) * (n + 2));
-    memset(res, '\0', n + 2);
-    strncpy(res, str, n);
+string_t substr(string_t str, size_t len) {
+    char_t* res = malloc(sizeof(char_t) * (len + 1));
+    memset(res, '\0', len + 1);
+    strncpy(res, str, len);
     return res;
 }
+
+string_t slice(char_t* start, char_t* end) {
+    size_t len = end - start + 1;
+    char_t* res = malloc(sizeof(char_t) * (len + 1));
+    memset(res, '\0', len + 1);
+    strncpy(res, start, len);
+    return res;
+}
+
 
 //string_t concat()
 symb_t append_symb(char_t* str) {

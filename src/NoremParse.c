@@ -24,6 +24,71 @@ buildin : '+' | '-' | '*' | '/' ;
 
 
 
+
+
+
+
+
+bool chr_in_str(char_t c, char_t* str) {
+    char_t* ptr = str;
+    while(*ptr != '\0') {
+        if(c == *ptr++) { return true; }
+    }
+    return false;
+}
+bool is_digit(char_t c) {
+    return c >= '0' && c <= '9';
+}
+bool is_alpha(char_t c) {
+    return (c >= 'A' && c <= 'Z') || (c >= 'a' && c <= 'z');
+}
+bool is_space(char_t c) {
+    return c == ' ' || c == '\n' || c == '\r' || c == '\t';
+}
+bool is_extended(char_t c) {
+    static char_t extended[] = "+-*/<=>!?:$%%_&~^";
+    return chr_in_str(c,extended);
+}
+bool is_legal(char_t c) {
+    return is_alpha(c) || is_digit(c) || is_extended(c);
+}
+
+bool is_paren(char_t c) {
+    static char_t paren[] = "()[]{}";
+    return chr_in_str(c,paren);
+}
+
+bool is_delim(char_t c) {
+    static char_t delim[] = ";,.\\";
+    return chr_in_str(c,delim);
+}
+
+/*
+symb_t get_next(char_t* str) {
+    char_t* ptr = str;
+
+    //eat_space
+    while(is_space(*ptr)) { ptr ++;}
+
+
+    // ()[]{};,.
+    if(is_spec_char(ptr[0]) {
+        return to_symb(slice(ptr,ptr));
+    } else if(is_digit(ptr[0])) {
+        char_t* start = ptr;
+
+    } else if(ptr[0] == '-' && is_digit(ptr[1])) {
+        
+    } else if(is_legal(ptr[0])) {
+        char_t* start = ptr;
+        while(is_legal(ptr[0])) { ptr ++; }
+        return to_symb(slice(start, ptr - 1));
+    } 
+
+
+}
+*/
+
 typedef struct Parser_t {
     bool success;
     union {
@@ -40,9 +105,6 @@ typedef struct Parser_t {
     char_t* text_base;
     char_t* text_ptr;
 } Parser_t;
-
-
-
 
 
 void DEBUG_SHOW_PARSER(Parser_t par, Tag_t tag) {
@@ -76,67 +138,70 @@ void DEBUG_SHOW_PARSER(Parser_t par, Tag_t tag) {
 }
 
 #define __PARSER_DEBUG__
-#define PARSER_CHECK(p) \
+#define PARSER_START(p) \
+    DBG("try...\n"); \
     if(!p.success) return p
 
-#define PARSER_FAIL(p,msg) \
+#define PARSER_FAIL(p) \
+    DBG("failed.\n");\
     p.text_ptr = par.text_ptr; \
     p.success = false; \
-    p.message = msg; \
     return p
 
 #define PARSER_SUCCESS(p) \
+    DBG("success!\n");\
     p.success = true; \
     return p
 
+
 Parser_t end_of_text(Parser_t par) {
-    PARSER_CHECK(par);
+    PARSER_START(par);
     if(par.text_ptr[0] == '\0') {
         PARSER_SUCCESS(par);
     } else {
-        PARSER_FAIL(par,"end_of_text failed.");
+        PARSER_FAIL(par);
     }
 }
 
 Parser_t read_char(Parser_t par) {
-    PARSER_CHECK(par);
+    PARSER_START(par);
     if(par.text_ptr[0] != '\0') {
         par.char_v = par.text_ptr[0];
         par.text_ptr ++;
         PARSER_SUCCESS(par);
     } else {
-        PARSER_FAIL(par,"read_char failed.");
+        PARSER_FAIL(par);
     }
 }
 
 Parser_t parse_char(Parser_t par, char_t c) {
-    PARSER_CHECK(par);
+    PARSER_START(par);
     Parser_t p1 = read_char(par);
-    PARSER_CHECK(p1);
+    PARSER_START(p1);
     if(p1.char_v == c) {
         PARSER_SUCCESS(p1);
     } else {
-        PARSER_FAIL(p1,"parse_char failed.");
+        PARSER_FAIL(p1);
     }
 }
 
 Parser_t char_satisify(Parser_t par, bool (*fun) (char_t)) {
-    PARSER_CHECK(par);
+    PARSER_START(par);
     Parser_t p1 = read_char(par);
-    PARSER_CHECK(p1);
+    PARSER_START(p1);
     if(fun(p1.char_v)) {
         PARSER_SUCCESS(p1);
     } else {
-        PARSER_FAIL(p1,"char_satisfity failed.");
+        PARSER_FAIL(p1);
     }
 }
 
 Parser_t read_string(Parser_t par, size_t len) {
-    PARSER_CHECK(par);
-    char_t* str = substr(par.text_ptr,len);
+    PARSER_START(par);
+    char_t* str = substr(par.text_ptr, len);
     if(strlen(str) < len) {
         free(str);
-        PARSER_FAIL(par,"read_string failed.");
+        PARSER_FAIL(par);
     } else {
         par.string_v = str;
         par.text_ptr += len;
@@ -145,59 +210,32 @@ Parser_t read_string(Parser_t par, size_t len) {
 }
 
 Parser_t parse_string(Parser_t par, string_t str) {
-    PARSER_CHECK(par);
+    PARSER_START(par);
     Parser_t p1 = read_string(par,strlen(str));
-    PARSER_CHECK(p1);
+    PARSER_START(p1);
     if(strcmp(p1.string_v,str) == 0) {
         PARSER_SUCCESS(p1);
     } else {
-        PARSER_FAIL(p1,"parse_string failed.");
+        PARSER_FAIL(p1);
     }
 }
 
-bool chr_in_str(char_t c, char_t* str) {
-    char_t* ptr = str;
-    while(*ptr != '\0') {
-        if(c == *ptr++) { return true; }
-    }
-    return false;
-}
-bool is_digit(char_t c) {
-    return c >= '0' && c <= '9';
-}
-bool is_alpha(char_t c) {
-    return (c >= 'A' && c <= 'Z') || (c >= 'a' && c <= 'z');
-}
-bool is_space(char_t c) {
-    return c == ' ' || c == '\n' || c == '\r' || c == '\t';
-}
-bool is_extended(char_t c) {
-    static char_t extended[] = "+-*/<=>!?:$%%_&~^";
-    return chr_in_str(c,extended);
-}
-bool is_legal(char_t c) {
-    return is_alpha(c) || is_digit(c) || is_extended(c);
-}
-bool is_spec_char(char_t c) {
-    static char_t specs[] = "()[]{};,.\\";
-    return chr_in_str(c,specs);
-}
 
 Parser_t parse_digit(Parser_t par) {
     Parser_t p1 = char_satisify(par,is_digit);
     if(p1.success) {
         PARSER_SUCCESS(p1);
     } else {
-        PARSER_FAIL(p1,"char_satisfity failed.");
+        PARSER_FAIL(p1);
     }
 }
 
 Parser_t parse_unsigned_int(Parser_t par) {
-    PARSER_CHECK(par);
+    PARSER_START(par);
     // minimal - one digit
     char* ptr = par.text_ptr;
     if(!is_digit(*ptr)) {
-        PARSER_FAIL(par,"parse_unsigned_int failed.");
+        PARSER_FAIL(par);
     }
     // read digits until fail
     int_t value = *ptr++ - '0';
@@ -212,14 +250,14 @@ Parser_t parse_unsigned_int(Parser_t par) {
 }
 
 Parser_t parse_int(Parser_t par) {
-    PARSER_CHECK(par);
+    PARSER_START(par);
     bool_t with_minus = false;
     if(par.text_ptr[0] == '-') {
         par.text_ptr ++;
         with_minus = true;
     }
     Parser_t p1 = parse_unsigned_int(par);
-    PARSER_CHECK(p1);
+    PARSER_START(p1);
     if(with_minus) {
         p1.int_v *= -1;
     }
@@ -227,26 +265,25 @@ Parser_t parse_int(Parser_t par) {
 }
 
 Parser_t parse_symb(Parser_t par) {
-    PARSER_CHECK(par);
+    PARSER_START(par);
     // minimal - one legal
     char* ptr = par.text_ptr;
     if(!is_legal(*ptr)) {
-        PARSER_FAIL(par,"parse_symb failed.");
+        PARSER_FAIL(par);
     }
     // read legal until fail
     while(is_legal(*ptr)) {
         ptr ++;
     }
-    string_t res = substr(par.text_ptr, ptr - par.text_ptr);
-    printf("symbol! %s111\n",res);
+    string_t res = slice(par.text_ptr, ptr - 1);
     par.text_ptr = ptr;
     par.symb_v = to_symb(res);
-    //free(res);
+    free(res);
     PARSER_SUCCESS(par);
 }
 
 Parser_t parse_any_space(Parser_t par) {
-    PARSER_CHECK(par);
+    PARSER_START(par);
     char* ptr = par.text_ptr;
     while(is_space(*ptr)) {
         par.char_v = *ptr;
@@ -257,11 +294,11 @@ Parser_t parse_any_space(Parser_t par) {
 }
 
 Parser_t parse_some_space(Parser_t par) {
-    PARSER_CHECK(par);
+    PARSER_START(par);
     // minimal - one space
     char* ptr = par.text_ptr;
     if(!is_space(*ptr)) {
-        PARSER_FAIL(par,"parse_some_space failed.");
+        PARSER_FAIL(par);
     }
     return parse_any_space(par);
 }
@@ -271,12 +308,12 @@ Parser_t parse_term(Parser_t par);
 Parser_t parse_app_list(Parser_t par);
 
 Parser_t parse_app_list(Parser_t par) {
-    PARSER_CHECK(par);
+    PARSER_START(par);
     // minimal - one term
     par = parse_term(par);
     Term_t* with = par.term_v;
     if(!par.success) {
-        PARSER_FAIL(par,"parse_app_list failed.");
+        PARSER_FAIL(par);
     }
     // read term until fail
     Parser_t p1,p2;
@@ -295,7 +332,7 @@ Parser_t parse_app_list(Parser_t par) {
     p2 = parse_char(p2,';');
     if(p2.success) { // semicolon notation!
         p2 = parse_app_list(p2);
-        PARSER_CHECK(p2);
+        PARSER_START(p2);
         p2.term_v = new_app(with,p2.term_v);
         PARSER_SUCCESS(p2);
     } else { // return term
@@ -305,36 +342,39 @@ Parser_t parse_app_list(Parser_t par) {
 }
 
 Parser_t parse_operator(Parser_t par) {
-    PARSER_CHECK(par);
-    
+    PARSER_START(par);
     // minimal - one non-space
     char* ptr = par.text_ptr;
     if(is_space(*ptr)) {
-        PARSER_FAIL(par,"parse_operator failed.");
+        PARSER_FAIL(par);
     }
     // read non-space until fail
     while(!is_space(*ptr)) {
         ptr ++;
     }
-    string_t res = substr(par.text_ptr, ptr - par.text_ptr);
+    string_t res = slice(par.text_ptr, ptr - 1);
     par.text_ptr = ptr;
 
     if(strcmp(res,"+") == 0) {
+        free(res);
         par.term_v = &tags[ADDI];
         PARSER_SUCCESS(par);
     } else if(strcmp(res,"printi") == 0) {
+        free(res);
         par.term_v = &tags[PRINTI];
         PARSER_SUCCESS(par);
     } else if(strcmp(res,"exit") == 0) {
+        free(res);
         par.term_v = &tags[EXIT];
         PARSER_SUCCESS(par);
     } else {
-        PARSER_FAIL(par,"parse_operator failed.");
+        free(res);
+        PARSER_FAIL(par);
     }
 }
 
 Parser_t parse_term(Parser_t par) {
-    PARSER_CHECK(par);
+    PARSER_START(par);
     Parser_t p1;
 
     p1 = parse_operator(par);
@@ -383,21 +423,36 @@ Parser_t parse_term(Parser_t par) {
     }
 
     // no match
-    PARSER_FAIL(par,"parse_term failed.");
+    PARSER_FAIL(par);
 }
 
+Parser_t parse_program(Parser_t par) {
+    PARSER_START(par);
+    
+    par = parse_app_list(par);
+    Term_t* result = par.term_v;
+    par = end_of_text(par);
 
+    if(par.success) {
+        par.term_v = result;
+        PARSER_SUCCESS(par);
+    } else {
+        PARSER_FAIL(par);
+    }
+}
 
 void parser_test() {
     Parser_t par;
     char* text = "(\\x.\\y. + x y) 1 2";
-    DBG("read char\n");
     par.success = true;
     par.text_base = text;
     par.text_ptr = text;
-    Parser_t p1 = parse_app_list(par);
+    Parser_t p1 = parse_program(par);
     
     DEBUG_SHOW_PARSER(p1,TERM);
+    show_term(ski_compile(p1.term_v));
+
+
     //Term_t* res = ski_compile(p1.term_v);
     //show_term(res);
 }

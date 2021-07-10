@@ -4,7 +4,7 @@ bool is_tag(Term_t* term) {
     return term >= &tags[0] && term < &tags[100];
 }
 bool is_singleton(Term_t* term) {
-    return term >= &tags[100] && term <= &tags[256];
+    return term >= &tags[100] && term <= &tags[255];
 }
 bool is_atom(Term_t* term) {
     return is_singleton(term) || is_tag(term->tag);
