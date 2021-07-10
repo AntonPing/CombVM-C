@@ -47,6 +47,7 @@
         z = *sp --; \
     }
 
+/*
 Term_t* eval(Term_t* term) {
     Term_t* stack[16];
     Term_t** sp = &stack[0];
@@ -101,3 +102,4 @@ Term_t* eval(Term_t* term) {
 
     }
 }
+*/

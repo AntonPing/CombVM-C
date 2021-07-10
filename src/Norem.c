@@ -83,6 +83,8 @@ void show_app_list(Term_t* term) {
 }
 
 int main() {
+    DBG("read char\n");
+    //PANIC("panic");
     printf("hello\n");
     parser_test();
 }

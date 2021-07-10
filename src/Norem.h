@@ -3,11 +3,12 @@
 #include <stdio.h>
 #include <stdlib.h>
 #include <stdint.h>
+#include <stdbool.h>
+#include <stdarg.h>
 #include <string.h>
 #include <stdatomic.h>
 #include <unistd.h>
 #include <pthread.h>
-#include <stdbool.h>
 #include <setjmp.h>
 #include <assert.h>
 #include <ctype.h>
@@ -20,13 +21,15 @@ typedef bool bool_t;
 typedef char* symb_t;
 typedef char* string_t;
 
+
+
 #ifdef DEBUG
 #define DBG(...) do{ \
     fprintf(stderr, "[DEBUG]%s %s(Line %d): ",__FILE__,__FUNCTION__,__LINE__); \
     fprintf(stderr, __VA_ARGS__); \
-} while(0)
+    } while(0)
 #else
-#define DBG(...)    
+#define DBG(...)
 #endif
 
 #define PANIC(...) do{ \

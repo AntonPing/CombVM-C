@@ -12,7 +12,14 @@
 | (x -> t)
 */
 
-
+/*
+alpha   : [A-Za-z]
+digit   : [0-9]
+int     : -? <digit>+
+real    : -? <digit>+ . <digit>+
+token   :
+buildin : '+' | '-' | '*' | '/' ;
+*/
 
 
 
@@ -384,6 +391,7 @@ Parser_t parse_term(Parser_t par) {
 void parser_test() {
     Parser_t par;
     char* text = "(\\x.\\y. + x y) 1 2";
+    DBG("read char\n");
     par.success = true;
     par.text_base = text;
     par.text_ptr = text;

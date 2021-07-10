@@ -1,6 +1,6 @@
 .DEFAULT_GOAL := $(TARGET)
 TARGET = $(DIR_BIN)/Norem
-CFLAGS ?= -g -Wall -Wextra -Werror
+CFLAGS := -Wall -Wextra -Werror
 CC := gcc
 
 DIR_INC = ./include
@@ -12,19 +12,21 @@ SRCS = $(wildcard $(DIR_SRC)/*.c)
 OBJS = $(patsubst %.c,$(DIR_OBJ)/%.o,$(notdir $(SRCS)))
 
 $(TARGET) : $(OBJS)
-	$(CC) $(OBJS) -o $@
+	$(CC) $(CFLAGS) $(OBJS) -o $@
 
 $(DIR_OBJ)/%.o : ${DIR_SRC}/%.c
 	$(CC) $(CFLAGS) -c $< -o $@
 
+debug: CFLAGS += -D DEBUG
+debug: $(TARGET) 
 
-debug: $(OBJS)
-	$(CC) $(OBJS) -o $(TARGET) -D DEBUG
-
+build: CFLAGS += -O3
+build: $(TARGET) 
 
 run: $(TARGET)
 	@$(TARGET)
 
+.PHONY: clean
 clean:
 	@rm -rf $(DIR_OBJ)/*
 	@touch $(DIR_OBJ)/.gitkeep
