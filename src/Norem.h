@@ -97,7 +97,10 @@ Term_t* new_symb(symb_t value);
 Term_t* new_lamb(symb_t x, Term_t* t);
 
 // NoremParse.c
-void parser_test();
+Term_t* parse(char_t* str);
+
+// NoremEval.c
+Term_t* eval(Term_t* term);
 
 // NoremSymb.c
 symb_t to_symb(char_t* str);

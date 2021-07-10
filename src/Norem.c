@@ -90,8 +90,24 @@ void show_app_list(Term_t* term) {
 }
 
 int main() {
-    DBG("read char\n");
-    //PANIC("panic");
     printf("hello\n");
-    parser_test();
+    char* text = "(\\x.\\y. + x y) 1 2";
+    Term_t* result = parse(text);
+    if(result != NULL) {
+        printf("\n");
+        show_term(result);
+        printf("\n");
+    }
+
+    result = ski_compile(result);
+    if(result != NULL) {
+        show_term(result);
+        printf("\n");
+    }
+
+    result = eval(result);
+
+    show_term(result);
+
+    return 0;
 }

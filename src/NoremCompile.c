@@ -39,8 +39,6 @@ bool is_free_in(symb_t x, Term_t* term) {
 }
 
 Term_t* ski_compile(Term_t* term) {
-    show_term(term); printf("\n");
-
     if(term == NULL) {
         printf("can't compile NULL!\n");
         return NULL;

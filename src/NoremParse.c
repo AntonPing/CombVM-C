@@ -441,18 +441,17 @@ Parser_t parse_program(Parser_t par) {
     }
 }
 
-void parser_test() {
+Term_t* parse(char_t* str) {
     Parser_t par;
-    char* text = "(\\x.\\y. + x y) 1 2";
     par.success = true;
-    par.text_base = text;
-    par.text_ptr = text;
-    Parser_t p1 = parse_program(par);
-    
-    DEBUG_SHOW_PARSER(p1,TERM);
-    show_term(ski_compile(p1.term_v));
-
-
-    //Term_t* res = ski_compile(p1.term_v);
-    //show_term(res);
+    par.text_base = str;
+    par.text_ptr = str;
+    par = parse_program(par);
+    if(par.success) {
+        DBG("parse success!");
+        return par.term_v;
+    } else {
+        DBG("parse failed!");
+        return NULL;
+    }
 }
