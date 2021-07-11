@@ -24,7 +24,7 @@ string_t slice(char_t* start, char_t* end) {
 symb_t append_symb(char_t* str) {
     //DBG("new symbol: %s\n",str);
     if(symb_ptr > symb_ceil) {
-        //PANIC("symbol table overflow!\n");
+        PANIC("symbol table overflow!\n");
         return NULL; // symbol table overflow
     } else {
         symb_t symb = malloc(sizeof(char) * strlen(str));
@@ -61,14 +61,16 @@ typedef struct Module_t {
 
 static symb_t dict_key[2048];
 static Term_t* dict_value[2048];
-static size_t dict_index;
+static size_t dict_index = 0;
 
 Term_t* dict_get_value(symb_t key) {
     for(size_t i = 0; i < dict_index; i++) {
         if(dict_key[i] == key) {
+            DBG("Found\n");
             return dict_value[i];
         }
     }
+    DBG("Nothing\n");
     return NULL;
 }
 

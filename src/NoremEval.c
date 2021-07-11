@@ -96,8 +96,10 @@ Term_t* eval(Term_t* term) {
                 POP_2(x,y);
                 a = eval(x);
                 assert(a->tag == &tags[INT]);
-                printf("%ld\n", a->int_v);
+                printf("printi %ld\n", a->int_v);
                 NEXT(y);
+            case DEFINE:
+                PANIC("TODO");
             case EXIT:
                 exit(0);
             default:

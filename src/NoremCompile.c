@@ -82,20 +82,51 @@ Term_t* ski_compile(Term_t* term) {
 }
 
 
-struct Cover_t {
-    
+typedef struct Symb_List_t {
+    symb_t this;
+    struct Symb_List_t* next;
+} Symb_List_t;
 
-
+bool symb_list_lookup(symb_t symb, Symb_List_t* list) {
+    Symb_List_t* look = list;
+    while(true) {
+        if(look == NULL) {
+            return false;
+        } else if(look->this == symb) {
+            return true;
+        } else {
+            look = look->next;
+        }
+    }
 }
 
-Term_t* func_linking(Term_t* term) {
-    if(term->tag == &tags[SYMB]) {
-
-
+Term_t* func_linking(Term_t* term, Symb_List_t* list) {
+    show_term(term); printf("\n");
+    if(term == NULL) {
+        PANIC("NULL!\n");
+    } else if(is_var(term)) {
+        DBG("VAR\n");
+        if(symb_list_lookup(term->symb_v,list)) {
+            return term;
+        } else {
+            DBG("2\n");
+            return dict_get_value(term->symb_v);
+        }
+    } else if(is_lambda(term)) {
+        DBG("LAMB\n");
+        Lambda_t* lamb = term->lamb_v;
+        Symb_List_t new_list = { lamb->x, list };
+        return new_lamb(lamb->x, func_linking(lamb->t, &new_list));
+    } else if(is_app(term)) {
+        DBG("APP\n");
+        return new_app(func_linking(term->t1, list),
+                       func_linking(term->t2, list));
+    } else {
+        DBG("ATOM\n");
+        return term;
     }
+}
 
-
-
-
-
+Term_t* linking(Term_t* term) {
+    return func_linking(term, NULL);
 }

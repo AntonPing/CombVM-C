@@ -46,6 +46,7 @@ typedef enum Tag_t {
     //ALLOC,FREE,
     //READI,WRITEI
     PRINTI,EXIT,
+    DEFINE,
     NIL,
 } Tag_t;
 
@@ -88,6 +89,7 @@ bool is_app(Term_t* term);
 bool is_var(Term_t* term);
 bool is_lambda(Term_t* term);
 Term_t* ski_compile(Term_t* term);
+Term_t* linking(Term_t* term);
 
 // NoremHeap.c
 Term_t* new_app(Term_t* t1, Term_t* t2);
@@ -100,14 +102,21 @@ Term_t* new_symb(symb_t value);
 Term_t* new_lamb(symb_t x, Term_t* t);
 
 // NoremParse.c
-Term_t* parse(char_t* str);
+bool parse(char_t* str, Term_t** ret);
+bool definition(char_t* str, symb_t* key, Term_t** value);
 
 // NoremEval.c
 Term_t* eval(Term_t* term);
+
+
 
 // NoremSymb.c
 symb_t to_symb(char_t* str);
 string_t substr(string_t str, size_t n);
 string_t slice(char_t* start, char_t* end);
+Term_t* dict_get_value(symb_t key);
+bool dict_update(symb_t key, Term_t* value);
+bool dict_new_key(symb_t key, Term_t* value);
+
 
 #endif

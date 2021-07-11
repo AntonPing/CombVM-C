@@ -328,7 +328,6 @@ Parser_t parse_app_list(Parser_t par) {
         }
     }
     // semicolon
-    printf("trysemi\n");
     p2 = parse_any_space(par);
     p2 = parse_char(p2,';');
     p2 = parse_any_space(p2);
@@ -368,6 +367,10 @@ Parser_t parse_operator(Parser_t par) {
     } else if(strcmp(res,"exit") == 0) {
         free(res);
         par.term_v = &tags[EXIT];
+        PARSER_SUCCESS(par);
+    } else if(strcmp(res,"define") == 0) {
+        free(res);
+        par.term_v = &tags[DEFINE];
         PARSER_SUCCESS(par);
     } else {
         free(res);
@@ -425,7 +428,6 @@ Parser_t parse_term(Parser_t par) {
 
 Parser_t parse_program(Parser_t par) {
     PARSER_START(par);
-    
     par = parse_app_list(par);
     Term_t* result = par.term_v;
     par = end_of_text(par);
@@ -438,17 +440,41 @@ Parser_t parse_program(Parser_t par) {
     }
 }
 
-Term_t* parse(char_t* str) {
+bool parse(char_t* str, Term_t** ret) {
     Parser_t par;
     par.success = true;
     par.text_base = str;
     par.text_ptr = str;
     par = parse_program(par);
     if(par.success) {
-        DBG("parse success!");
-        return par.term_v;
+        DBG("parse success!\n");
+        *ret = par.term_v;
+        return true;
     } else {
-        DBG("parse failed!");
-        return NULL;
+        DBG("parse failed!\n");
+        return false;
+    }
+}
+
+bool definition(char_t* str, symb_t* key, Term_t** value) {
+    Parser_t par;
+    par.success = true;
+    par.text_base = str;
+    par.text_ptr = str;
+    par = parse_any_space(par);
+    par = parse_symb(par);
+    symb_t symb = par.symb_v;
+    par = parse_any_space(par);
+    par = parse_app_list(par);
+    Term_t* term = par.term_v;
+
+    if(par.success) {
+        DBG("defination success!\n");
+        *key = symb;
+        *value = term;
+        return true;
+    } else {
+        DBG("defination failed!\n");
+        return false;
     }
 }
