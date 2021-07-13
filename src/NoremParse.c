@@ -21,14 +21,6 @@ token   :
 buildin : '+' | '-' | '*' | '/' ;
 */
 
-
-
-
-
-
-
-
-
 bool chr_in_str(char_t c, char_t* str) {
     char_t* ptr = str;
     while(*ptr != '\0') {
@@ -440,7 +432,7 @@ Parser_t parse_program(Parser_t par) {
     }
 }
 
-bool parse(char_t* str, Term_t** ret) {
+bool term_parse(char_t* str, Term_t** ret) {
     Parser_t par;
     par.success = true;
     par.text_base = str;

@@ -73,13 +73,23 @@ typedef struct Term_t {
     };
 } Term_t;
 
-// global tag pointers
-extern Term_t tags[256];
+typedef struct Dict_t {
+    symb_t name;
+    Term_t* raw;
+    Term_t* compiled;
+    Term_t* linked;
+    string_t text;
+    struct Dict_t* next;
+} Dict_t;
 
 // Norem.c
-bool is_tag(Term_t* term);
+extern Term_t tags[256];
+Dict_t* dict_get(symb_t key);
+
+// NoremShow.c
 void show_term(Term_t* term);
 void show_lamb(Term_t* term);
+void show_dict(Dict_t* dict);
 
 // NoremCompile.c
 bool is_tag(Term_t* term);
@@ -88,8 +98,8 @@ bool is_atom(Term_t* term);
 bool is_app(Term_t* term);
 bool is_var(Term_t* term);
 bool is_lambda(Term_t* term);
-Term_t* ski_compile(Term_t* term);
-Term_t* linking(Term_t* term);
+Term_t* term_compile(Term_t* term);
+Term_t* term_link(Term_t* term);
 
 // NoremHeap.c
 Term_t* new_app(Term_t* t1, Term_t* t2);
@@ -102,21 +112,22 @@ Term_t* new_symb(symb_t value);
 Term_t* new_lamb(symb_t x, Term_t* t);
 
 // NoremParse.c
-bool parse(char_t* str, Term_t** ret);
+bool term_parse(char_t* str, Term_t** ret);
 bool definition(char_t* str, symb_t* key, Term_t** value);
 
 // NoremEval.c
 Term_t* eval(Term_t* term);
 
-
-
 // NoremSymb.c
 symb_t to_symb(char_t* str);
 string_t substr(string_t str, size_t n);
 string_t slice(char_t* start, char_t* end);
-Term_t* dict_get_value(symb_t key);
-bool dict_update(symb_t key, Term_t* value);
-bool dict_new_key(symb_t key, Term_t* value);
 
+/*
+Bind_t* dict_get_bind(symb_t key);
+Bind_t* dict_new_bind(symb_t key);
+void bind_set_text(Bind_t* bind, string_t text);
+void bind_update(Bind_t* bind);
+*/
 
 #endif

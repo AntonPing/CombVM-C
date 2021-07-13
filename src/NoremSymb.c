@@ -20,7 +20,6 @@ string_t slice(char_t* start, char_t* end) {
     return res;
 }
 
-//string_t concat()
 symb_t append_symb(char_t* str) {
     //DBG("new symbol: %s\n",str);
     if(symb_ptr > symb_ceil) {
@@ -45,57 +44,112 @@ symb_t to_symb(char_t* str) {
     return append_symb(str);
 }
 
-
-
 /*
-typedef struct Module_t {
-    symb_t name;
-    size_t cap;
-    size_t size;
-    union {
-        Term_t* term;
-        Module_t* list;
-    }
-}
-*/
+static Bind_t dictionary[2048];
+size_t dict_index = 0;
 
-static symb_t dict_key[2048];
-static Term_t* dict_value[2048];
-static size_t dict_index = 0;
-
-Term_t* dict_get_value(symb_t key) {
+Bind_t* dict_get_bind(symb_t key) {
     for(size_t i = 0; i < dict_index; i++) {
-        if(dict_key[i] == key) {
+        if(dictionary[i].name == key) {
             DBG("Found\n");
-            return dict_value[i];
+            return &dictionary[i];
         }
     }
     DBG("Nothing\n");
     return NULL;
 }
 
-bool dict_update(symb_t key, Term_t* value) {
-    for(size_t i = 0; i < dict_index; i++) {
-        if(dict_key[i] == key) {
-            dict_value[i] = value;
-            return false;
-        }
+Bind_t* dict_new_bind(symb_t key) {
+    if(dict_get_bind(key) == NULL) {
+        Bind_t bind = { key, NULL, true, NULL, NULL, NULL };
+        dictionary[dict_index] = bind;
+        return &dictionary[dict_index++];
+    } else {
+        DBG("key already exist.\n");
+        return NULL;
     }
-    dict_key[dict_index] = key;
-    dict_value[dict_index] = value;
-    dict_index ++;
-    return true;
 }
 
-bool dict_new_key(symb_t key, Term_t* value) {
-    for(size_t i = 0; i < dict_index; i++) {
-        if(dict_key[i] == key) {
-            DBG("key already exist!\n");
-            return false;
+void bind_define(Bind_t* bind, string_t text) {
+    assert(bind != NULL);
+    size_t length = strlen(text);
+    bind->text = malloc(sizeof(char_t) * (length + 1));
+    strcpy(bind->text, text);
+    bind->text[length - 1] = '\0';
+    bind->raw = term_parse(bind->text);
+}
+
+void bind_update(Bind_t* bind) {
+    assert(bind != NULL);
+    if(bind->updated) {
+        return;
+    } else {
+        bind->linked = term_link(bind->raw);
+        bind->compiled = term_compile(bind->linked);
+        bind->updated = true;
+    }
+}
+typedef struct Node_t {
+    symb_t name;
+    bool is_bind;
+    union {
+        Bind_t* bind;
+        struct Node_t* node;
+    };
+    bool is_header;
+    struct Node_t* next;
+} Node_t;
+
+static Node_t* wdir = NULL;
+
+Node_t* dict_get(Node_t* from, symb_t key) {
+    Node_t* ptr = from;
+    while(true) {
+        if(ptr == NULL) {
+            return NULL;
+        } else if(ptr->name == key) {
+            return ptr;
+        } else {
+            ptr = ptr->next;
         }
     }
-    dict_key[dict_index] = key;
-    dict_value[dict_index] = value;
-    dict_index ++;
-    return true;
 }
+
+void node_back() {
+    wdir = wdir->father;
+}
+
+void node_enter(symb_t key) {
+    Node_t* node = dict_get(wdir, key);
+    if(node == NULL) {
+        puts("No such directory!");
+    } else {
+        wdir = node;
+    }
+}
+
+void node_pwd() {
+    if(wdir == NULL) {
+        puts("root.");
+    } else {
+        node_pwd(wdir->father);
+        puts(wdir->name);
+    }
+}
+
+Node_t* node_new_dir(symb_t key) {
+    Node_t* res;
+    if(dict_get(wdir,key) != NULL) {
+        puts("Directory already exist!");
+        return NULL;
+    }
+    res = malloc(sizeof(Node_t));
+    res->name = key;
+    res->is_bind = false;
+    res->node = NULL;
+    res->next = wdir;
+    res->father = wdir->father;
+    wdir->next = res;
+    return res;
+}
+*/

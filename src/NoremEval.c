@@ -105,15 +105,30 @@ Term_t* eval(Term_t* term) {
             default:
                 show_term(with); printf("\n");
                 PANIC("unknown singleton!\n");
-                exit(1);
         }
     } else if(is_tag(with->tag)) {
-        if(sp == &stack[0]) {
-            DBG("return value\n");
-            return with;
-        } else {
-            show_term(with); printf("\n");
-            PANIC("basic data can't be function!\n");
+        switch(with->tag - &tags[0]) {
+            case SYMB:
+                Dict_t* dict = dict_get(with->symb_v);
+                if(dict != NULL) {
+                    assert(dict->compiled != NULL);
+                    NEXT(dict->compiled);
+                } else {
+                    PANIC("undefined symbol!\n");
+                }
+            case INT:
+            case REAL:
+            case CHAR:
+            case BOOL:
+                if(sp == &stack[0]) {
+                    DBG("return value\n");
+                    return with;
+                } else {
+                    show_term(with); printf("\n");
+                    PANIC("basic data can't be function!\n");
+                }
+            default:
+                PANIC("TODO");
         }
     } else { // is_app(with)
         PUSH(with->t2);

@@ -38,9 +38,9 @@ bool is_free_in(symb_t x, Term_t* term) {
     return false;
 }
 
-Term_t* ski_compile(Term_t* term) {
+Term_t* term_compile(Term_t* term) {
     if(term == NULL) {
-        printf("can't compile NULL!\n");
+        PANIC("can't compile NULL!\n");
         return NULL;
     } else if(is_var(term)) {
         return term;
@@ -55,15 +55,15 @@ Term_t* ski_compile(Term_t* term) {
                 return &tags[I];
             } else if(is_lambda(lamb->t)) {
                 // T[\x.\y.E] -> T[\x.T[\y.E]]
-                Term_t* t2 = ski_compile(lamb->t);
-                return ski_compile(new_lamb(lamb->x,t2));
+                Term_t* t2 = term_compile(lamb->t);
+                return term_compile(new_lamb(lamb->x,t2));
             } else if(is_app(lamb->t)) {
                 // T[\x.(E1 E2)] -> (S T[\x.E1] T[\x.E2])
                 Term_t* t1 = lamb->t->t1;
                 Term_t* t2 = lamb->t->t2;
                 return new_app(new_app(&tags[S],
-                            ski_compile(new_lamb(lamb->x,t1))),
-                            ski_compile(new_lamb(lamb->x,t2)));
+                            term_compile(new_lamb(lamb->x,t1))),
+                            term_compile(new_lamb(lamb->x,t2)));
             }
         } else {
             // T[\x.E] -> (K T[E]), if x is not free in E
@@ -71,8 +71,8 @@ Term_t* ski_compile(Term_t* term) {
         }
     } else if(is_app(term)) { // for application
         // T[(E1 E2)] -> (T[E1] T[E2])
-        return new_app(ski_compile(term->t1),
-                        ski_compile(term->t2));
+        return new_app(term_compile(term->t1),
+                        term_compile(term->t2));
     } else if(is_atom(term)) {
         // Non-Lambda Atom
         return term;
@@ -80,7 +80,6 @@ Term_t* ski_compile(Term_t* term) {
     printf("impossible!\n");
     return NULL;
 }
-
 
 typedef struct Symb_List_t {
     symb_t this;
@@ -100,33 +99,42 @@ bool symb_list_lookup(symb_t symb, Symb_List_t* list) {
     }
 }
 
-Term_t* func_linking(Term_t* term, Symb_List_t* list) {
-    show_term(term); printf("\n");
+Term_t* term_link_helper(Term_t* term, Symb_List_t* list) {
+    //show_term(term); printf("\n");
     if(term == NULL) {
         PANIC("NULL!\n");
     } else if(is_var(term)) {
-        DBG("VAR\n");
         if(symb_list_lookup(term->symb_v,list)) {
             return term;
         } else {
-            DBG("2\n");
-            return dict_get_value(term->symb_v);
+            Dict_t* dict = dict_get(term->symb_v);
+            if(dict == NULL) {
+                DBG("can't find definition %s\n",term->symb_v);
+                return NULL;
+            } else {
+                if(dict->linked == NULL) {
+                    dict->linked = term_link(dict->raw);
+                }
+                if(dict->compiled == NULL) {
+                    dict->compiled = term_compile(dict->linked);
+                }
+                return dict->compiled;
+            }
         }
     } else if(is_lambda(term)) {
-        DBG("LAMB\n");
         Lambda_t* lamb = term->lamb_v;
         Symb_List_t new_list = { lamb->x, list };
-        return new_lamb(lamb->x, func_linking(lamb->t, &new_list));
+        return new_lamb(lamb->x, term_link_helper(lamb->t, &new_list));
     } else if(is_app(term)) {
-        DBG("APP\n");
-        return new_app(func_linking(term->t1, list),
-                       func_linking(term->t2, list));
+        return new_app(term_link_helper(term->t1, list),
+                       term_link_helper(term->t2, list));
     } else {
-        DBG("ATOM\n");
         return term;
     }
 }
 
-Term_t* linking(Term_t* term) {
-    return func_linking(term, NULL);
+Term_t* term_link(Term_t* term) {
+    return term_link_helper(term, NULL);
 }
+
+
