@@ -13,16 +13,23 @@
         x,stack[15]),stack[14]),stack[13]));
 */
 
-#define DOWN_REWIND() \
-    printf("down_rewind\n"); \
-    sp = sp
+#define DOWN_REWIND() do{ \
+    DBG("down rewind\n"); \
+    Term_t* term = *sp; \
+    while(sp > &stack[0]) { \
+        sp --; \
+        term = new_app(term,*sp); \
+    } \
+    NEXT(term); \
+} while(0)
 
 #define NEXT(x) \
     with = x; \
     goto eval_loop
 
 #define PUSH(x) \
-    *sp++ = x
+    *sp++ = x; \
+    assert(sp <= &stack[15])
 
 #define POP_1(x) \
     if(sp < &stack[1]) { \
@@ -67,14 +74,22 @@ Term_t* eval(Term_t* term) {
     Term_t** sp = &stack[0];
     Term_t* with = term;
 
-    DBG("eval call\n");
+    #ifdef DEBUG
+        printf("eval call: ");
+        show_term(with);
+        printf("\n");
+    #endif
 
     eval_loop:
     #ifdef DEBUG
-        SHOW_STACK();
+        show_term(with);
+        printf("\n");
+        //SHOW_STACK();
     #endif
 
-    if(is_singleton(with)) {
+    if(with == NULL) {
+        return NULL;
+    } else if(is_singleton(with)) {
         switch(with - &tags[0]) {
             Term_t *x,*y,*z;//,*a,*b;
             case I:
@@ -124,17 +139,17 @@ Term_t* eval(Term_t* term) {
                 POP_2(x,y); EVAL(x); EVAL(y);
                 assert(x->tag == &tags[INT]);
                 assert(y->tag == &tags[INT]);
-                NEXT(new_bool(x->int_v == x->int_v));
+                NEXT(new_bool(x->int_v == y->int_v));
             case GRT:
                 POP_2(x,y); EVAL(x); EVAL(y);
                 assert(x->tag == &tags[INT]);
                 assert(y->tag == &tags[INT]);
-                NEXT(new_bool(x->int_v > x->int_v));
+                NEXT(new_bool(x->int_v > y->int_v));
             case LSS:
                 POP_2(x,y); EVAL(x); EVAL(y);
                 assert(x->tag == &tags[INT]);
                 assert(y->tag == &tags[INT]);
-                NEXT(new_bool(x->int_v < x->int_v));
+                NEXT(new_bool(x->int_v < y->int_v));
             case PRINTI:
                 POP_2(x,y); EVAL(x);
                 assert(x->tag == &tags[INT]);
@@ -162,7 +177,11 @@ Term_t* eval(Term_t* term) {
             case CHAR:
             case BOOL:
                 if(sp == &stack[0]) {
-                    DBG("return value\n");
+                    #ifdef DEBUG
+                        printf("return value: ");
+                        show_term(with);
+                        printf("\n");
+                    #endif
                     return with;
                 } else {
                     show_term(with); printf("\n");

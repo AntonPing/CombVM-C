@@ -1,8 +1,8 @@
 #include "Norem.h"
 
 // TODO: better heap
-static Term_t heap_base[4096];
-static Term_t* heap_ceil = &heap_base[4095];
+static Term_t heap_base[65536];
+static Term_t* heap_ceil = &heap_base[65535];
 static Term_t* heap_ptr = &heap_base[0];
 
 Term_t* alloc_term() {

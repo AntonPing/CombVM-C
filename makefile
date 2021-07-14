@@ -1,6 +1,6 @@
 .DEFAULT_GOAL := $(TARGET)
 TARGET = $(DIR_BIN)/Norem
-CFLAGS := -Wall -Wextra -Werror
+CFLAGS := -Wall -Wextra -Werror -ledit
 CC := gcc
 
 DIR_INC = ./include

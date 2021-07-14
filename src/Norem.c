@@ -1,4 +1,5 @@
 #include "Norem.h"
+#include <editline/readline.h>
 
 Term_t tags[256];
 
@@ -55,6 +56,8 @@ void dict_update(symb_t key, string_t text, Term_t* value) {
     }
 }
 
+void command(string_t input);
+
 void command_define(string_t text, bool update) {
     symb_t key;
     Term_t* value;
@@ -77,59 +80,97 @@ void command_relink() {
     }
 }
 
+void command_load(string_t path) {
+    FILE *fp = NULL;
+    fp = fopen(path, "r");
+    if(fp == NULL) {
+        puts("file can't open!");
+        return;
+    } else {
+        puts("reading from file...");
+    }
+
+    char_t buff[2048];
+    size_t idx = 0;
+    bool newline = false;
+
+    while(idx <= 2047) {
+        buff[idx] = (char_t)fgetc(fp);
+        if(buff[idx] == ':'  && newline == true) {
+            buff[idx] = '\0';
+            command(buff);
+            buff[0] = ':';
+            newline = false;
+            idx = 1;
+        } else if(buff[idx] == EOF) {
+            buff[idx] = '\0';
+            command(buff);
+            puts("file ends.");
+            return;
+        } else if(is_space(buff[idx])) {
+            newline = true;
+            idx ++;
+        } else {
+            newline = false;
+            idx ++;
+        }
+    }
+    puts("buffer overflow!");
+}
+
+void command(string_t input) {
+    if(strncmp(input,":quit",5) == 0) {
+        puts("Goodbye!");
+        exit(0);
+    } else if(strncmp(input,":dict",5) == 0) {
+        show_dict(root);
+    } else if(strncmp(input,":load ",6) == 0) {
+        command_load(&input[6]);
+    } else if(strncmp(input,":define ",8) == 0) {
+        command_define(&input[8], false);
+    } else if(strncmp(input,":update ",8) == 0) {
+        command_define(&input[8], true);
+    } else if(strncmp(input,":relink",7) == 0) {
+        command_relink();
+    } else {
+        printf("Error: Unknown command! {\n %s\n}\n", input);
+    }
+}
+
 
 
 void repl() {
-    static char input[2048];
-
     // Print Version and Exit Information
     puts("Norem Repl Version 0.1");
     puts("Type :quit to Exit\n");
 
     while(true) {
-        fputs("> ", stdout);
-        fgets(input, 2048, stdin);
-        
-        size_t length = strlen(input);
-        // delete the last \n in input
-        input[length - 1] = '\0';
-        length --;
+
+        /* Output our prompt and get input */
+        char* input = readline("> ");
+        add_history(input);
 
         if(input[0] == ':') {
-            if(strcmp(input,":quit") == 0) {
-                puts("Goodbye!");
-                return;
-            } else if(strncmp(input,":dict",5) == 0) {
-                show_dict(root);
-            } else if(strncmp(input,":define",7) == 0) {
-                command_define(&input[7], false);
-            } else if(strncmp(input,":update",7) == 0) {
-                command_define(&input[7], true);
-            } else if(strncmp(input,":relink",7) == 0) {
-                command_relink();
-            } else {
-                puts("Error: Unknown command!");
-            }
+            command(input);
         } else {
             Term_t* term;
             if(term_parse(input,&term)) {
-                command_relink();
-                //show_term(term);
-                //DBG(" <- after parsing\n");
-                term = term_link(term);
-                //show_term(term);
-                //DBG(" <- after linking\n");
+                //command_relink();
+                DBG("1\n");
                 term = term_compile(term);
-                //show_term(term);
-                //DBG(" <- after compiling\n");
+                DBG("2\n");
+                //term = term_link(term);
+                DBG("3\n");
                 term = eval(term);
-                //printf("result: ");
+                DBG("4\n");
                 show_term(term);
                 printf("\n");
             } else {
                 puts("Parser Error!"); 
             }
         }
+        // Free retrieved input
+        free(input);
     }
 }
 

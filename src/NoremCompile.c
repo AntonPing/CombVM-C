@@ -40,7 +40,7 @@ bool is_free_in(symb_t x, Term_t* term) {
 
 Term_t* term_compile(Term_t* term) {
     if(term == NULL) {
-        PANIC("can't compile NULL!\n");
+        puts("can't compile NULL!");
         return NULL;
     } else if(is_var(term)) {
         return term;

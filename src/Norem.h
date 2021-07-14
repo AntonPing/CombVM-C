@@ -14,7 +14,7 @@
 #include <ctype.h>
 #include <uchar.h>
 
-typedef int64_t int_t;
+typedef long int_t;
 typedef double real_t;
 typedef char char_t;
 typedef bool bool_t;
@@ -112,6 +112,7 @@ Term_t* new_symb(symb_t value);
 Term_t* new_lamb(symb_t x, Term_t* t);
 
 // NoremParse.c
+bool is_space(char_t c);
 bool term_parse(char_t* str, Term_t** ret);
 bool definition(char_t* str, symb_t* key, Term_t** value);
 

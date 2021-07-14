@@ -113,6 +113,7 @@ void show_dict(Dict_t* dict) {
 }
 
 
+
 /*
 Bind_t* dict_get_bind(symb_t key) {
     for(size_t i = 0; i < dict_index; i++) {
