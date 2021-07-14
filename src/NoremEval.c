@@ -58,6 +58,10 @@
     printf("\n"); \
 } while(0)
 
+
+#define EVAL(x) \
+    x = eval(x)
+
 Term_t* eval(Term_t* term) {
     Term_t* stack[16];
     Term_t** sp = &stack[0];
@@ -72,7 +76,7 @@ Term_t* eval(Term_t* term) {
 
     if(is_singleton(with)) {
         switch(with - &tags[0]) {
-            Term_t *x,*y,*z,*a,*b;
+            Term_t *x,*y,*z;//,*a,*b;
             case I:
                 POP_1(x);
                 NEXT(x);
@@ -85,21 +89,57 @@ Term_t* eval(Term_t* term) {
                 PUSH(z);
                 NEXT(x);
             case ADDI:
-                POP_2(x,y);
-                a = eval(x);
-                b = eval(y);
-                assert(a->tag == &tags[INT]);
-                assert(b->tag == &tags[INT]);
-                z = new_int(a->int_v + b->int_v);
-                NEXT(z);
+                POP_2(x,y); EVAL(x); EVAL(y);
+                assert(x->tag == &tags[INT]);
+                assert(y->tag == &tags[INT]);
+                NEXT(new_int(x->int_v + y->int_v));
+            case SUBI:
+                POP_2(x,y); EVAL(x); EVAL(y);
+                assert(x->tag == &tags[INT]);
+                assert(y->tag == &tags[INT]);
+                NEXT(new_int(x->int_v - y->int_v));
+            case MULI:
+                POP_2(x,y); EVAL(x); EVAL(y);
+                assert(x->tag == &tags[INT]);
+                assert(y->tag == &tags[INT]);
+                NEXT(new_int(x->int_v * y->int_v));
+            case DIVI:
+                POP_2(x,y); EVAL(x); EVAL(y);
+                assert(x->tag == &tags[INT]);
+                assert(y->tag == &tags[INT]);
+                NEXT(new_int(x->int_v / y->int_v));
+            case NEGI:
+                POP_1(x); EVAL(x);
+                assert(x->tag == &tags[INT]);
+                NEXT(new_int(x->int_v * -1));
+            case IF:
+                POP_3(x,y,z); EVAL(x);
+                assert(x->tag == &tags[BOOL]);
+                NEXT(x->bool_v ? y : z);
+            case NOT:
+                POP_1(x); EVAL(x);
+                assert(x->tag == &tags[BOOL]);
+                NEXT(new_bool(!x->bool_v));
+            case EQL:
+                POP_2(x,y); EVAL(x); EVAL(y);
+                assert(x->tag == &tags[INT]);
+                assert(y->tag == &tags[INT]);
+                NEXT(new_bool(x->int_v == x->int_v));
+            case GRT:
+                POP_2(x,y); EVAL(x); EVAL(y);
+                assert(x->tag == &tags[INT]);
+                assert(y->tag == &tags[INT]);
+                NEXT(new_bool(x->int_v > x->int_v));
+            case LSS:
+                POP_2(x,y); EVAL(x); EVAL(y);
+                assert(x->tag == &tags[INT]);
+                assert(y->tag == &tags[INT]);
+                NEXT(new_bool(x->int_v < x->int_v));
             case PRINTI:
-                POP_2(x,y);
-                a = eval(x);
-                assert(a->tag == &tags[INT]);
-                printf("printi %ld\n", a->int_v);
+                POP_2(x,y); EVAL(x);
+                assert(x->tag == &tags[INT]);
+                printf("printi %ld\n", x->int_v);
                 NEXT(y);
-            case DEFINE:
-                PANIC("TODO");
             case EXIT:
                 exit(0);
             default:
@@ -108,8 +148,9 @@ Term_t* eval(Term_t* term) {
         }
     } else if(is_tag(with->tag)) {
         switch(with->tag - &tags[0]) {
+            Dict_t* dict;
             case SYMB:
-                Dict_t* dict = dict_get(with->symb_v);
+                dict = dict_get(with->symb_v);
                 if(dict != NULL) {
                     assert(dict->compiled != NULL);
                     NEXT(dict->compiled);

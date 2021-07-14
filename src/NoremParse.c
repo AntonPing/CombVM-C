@@ -348,26 +348,31 @@ Parser_t parse_operator(Parser_t par) {
     string_t res = slice(par.text_ptr, ptr - 1);
     par.text_ptr = ptr;
 
-    if(strcmp(res,"+") == 0) {
-        free(res);
-        par.term_v = &tags[ADDI];
-        PARSER_SUCCESS(par);
-    } else if(strcmp(res,"printi") == 0) {
-        free(res);
-        par.term_v = &tags[PRINTI];
-        PARSER_SUCCESS(par);
-    } else if(strcmp(res,"exit") == 0) {
-        free(res);
-        par.term_v = &tags[EXIT];
-        PARSER_SUCCESS(par);
-    } else if(strcmp(res,"define") == 0) {
-        free(res);
-        par.term_v = &tags[DEFINE];
-        PARSER_SUCCESS(par);
-    } else {
-        free(res);
-        PARSER_FAIL(par);
+
+#define OPERATOR(str,tag) \
+    if(strcmp(res,str) == 0) { \
+        free(res); \
+        par.term_v = &tags[tag]; \
+        PARSER_SUCCESS(par); \
     }
+    OPERATOR("+",ADDI);
+    OPERATOR("-",SUBI);
+    OPERATOR("*",MULI);
+    OPERATOR("/",DIVI);
+    OPERATOR("neg",NEGI);
+    OPERATOR("if",IF);
+    OPERATOR("not",NOT);
+    OPERATOR("=",EQL);
+    OPERATOR(">",GRT);
+    OPERATOR("<",LSS);
+    OPERATOR("print",PRINTI);
+    OPERATOR("exit",EXIT);
+    OPERATOR("nil",NIL);
+
+#undef OPERATOR
+    // no match, default:
+    free(res);
+    PARSER_FAIL(par);
 }
 
 Parser_t parse_term(Parser_t par) {

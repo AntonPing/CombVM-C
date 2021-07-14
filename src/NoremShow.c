@@ -35,6 +35,15 @@ void show_term(Term_t* term) {
             case K: printf("K"); return;
             case I: printf("I"); return;
             case ADDI: printf("+"); return;
+            case SUBI: printf("-"); return;
+            case MULI: printf("*"); return;
+            case DIVI: printf("/"); return;
+            case NEGI: printf("~"); return;
+            case IF: printf("if"); return;
+            case NOT: printf("not"); return;
+            case EQL: printf("="); return;
+            case GRT: printf(">"); return;
+            case LSS: printf("<"); return;
             case PRINTI: printf("print"); return;
             case EXIT: printf("EXIT"); return;
             case NIL: printf("Nil"); return;
