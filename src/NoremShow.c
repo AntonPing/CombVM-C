@@ -65,7 +65,7 @@ void show_term(Term_t* term) {
                 printf(term->bool_v ? "True" : "False");
                 return;
             case SYMB:
-                printf(term->symb_v);
+                printf("%s",term->symb_v);
                 return;
             case LAMB:
                 show_lamb(term);

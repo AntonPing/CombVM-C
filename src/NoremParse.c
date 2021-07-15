@@ -113,7 +113,7 @@ void DEBUG_SHOW_PARSER(Parser_t par, Tag_t tag) {
             case BOOL:
                 printf(par.bool_v ? "True" : "False"); break;
             case SYMB:
-                printf(par.symb_v); break;
+                printf("%s",par.symb_v); break;
             case LAMB:
                 show_lamb(par.term_v); break;
             case NIL:
