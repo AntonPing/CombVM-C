@@ -1,7 +1,6 @@
 package main
 
 import (
-	//"strings"
 	"fmt"
 	"os"
 	"os/exec"
@@ -10,8 +9,6 @@ import (
 
 func main() {
 	fmt.Println("hello")
-	i := DInt{42}
-	fmt.Println(i.Show())
 
 	rl, err := readline.NewEx(&readline.Config{
 		Prompt:                 "> ",
@@ -24,7 +21,12 @@ func main() {
 	for {
 		line, err := rl.Readline()
 		if err != nil { break }
-		fmt.Println(line)
+
+		inp := Input {line, 0}
+		res,err := ParseTerm(&inp)
+		if err != nil { break }
+
+		fmt.Println(res)
 	}
 	fmt.Println("Goodbye!")
 }
