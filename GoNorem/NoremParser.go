@@ -1,42 +1,18 @@
 package main
 
 import (
-	"errors"
+	//"errors"
 	"regexp"
 	"strconv"
 	//"strings"
 	//"fmt"
 )
 
-
 type Input struct {
 	text []string
 	pos int
 	stack []int
-	pass bool
 }
-
-func (inp *Input) Push() {
-	inp.stack.append(inp.pos)
-}
-
-func (inp *Input) Pop() {
-	length := len(inp.stack)
-	inp.pos = inp.stack[length-1]
-	inp.stack = inp.stack[length-1:]
-}
-
-/*
-func (inp *Input) [T any]And(func) bool {
-	if inp.pass {
-		return true
-	} else {
-		inp.Pop()
-		return false
-	}
-}
-*/
-
 
 func Tokenize(str string) Input {
 	results := make([]string, 0, 1)
@@ -49,33 +25,37 @@ func Tokenize(str string) Input {
 		}
 		results = append(results, group[1])
 	}
-	return Input{results,0,nil,false}
-}
-
-/*
-
-func ParseInt(inp *Input) (int,error) {
-	backup := *inp
-
-	const reInt = MustCompile(`^-?[0-9]+$`)
-	r1, err := RegMatch(inp, reInt)
-	if err != nil { goto parse_int_fail }
-	r2, err := strconv.Atoi(r);
-	if err != nil { panic("Cannot convert string to int!") }
-	// success
-	return DInt(r2), nil
-
-	parse_int_fail:
-	*inp = backup
-	return 0, errors.New("Parse Int Failed")
+	return Input{results,-1,nil}
 }
 
 
-func (inp *Input) EOI() bool {
-	return len(inp.text) == inp.pos
+func (inp *Input) Push() {
+	inp.stack = append(inp.stack,inp.pos)
 }
 
+func (inp *Input) Pop() {
+	length := len(inp.stack)
+	inp.pos = inp.stack[length-1]
+	inp.stack = inp.stack[length-1:]
+}
 
+func (inp *Input) EOI() {
+	if inp.pos < len(inp.text) - 1 {
+		panic("Doesn't match EOI!")
+	}
+}
+
+func (inp *Input) Peek() string {
+	return inp.text[inp.pos]
+}
+
+func (inp *Input) Next() string {
+	if inp.pos >= len(inp.text) - 1 {
+		panic("End of Input!")
+	} else {
+		inp.pos ++
+		return inp.Peek()
+	}
 }
 
 type Term interface {
@@ -87,6 +67,39 @@ type DInt int64
 func (d DInt) Type() string {
 	return "Int"
 }
+
+func ParseInt(inp *Input) DInt {
+	defer func(pos int) {
+        if e := recover(); e != nil {
+			inp.pos = pos
+            panic("Parse Int Failed")
+        }
+    }(inp.pos)
+
+	token := inp.Next()
+
+	match, _ := regexp.MatchString(`^-?[0-9]+$`, token);
+	if !match { panic("Doen't match regex") }
+
+	i, err := strconv.Atoi(token);
+	if err != nil {
+		// this is a REAL PANIC!
+		panic("Cannot convert string to int!")
+	}
+
+	return DInt(i)
+}
+
+
+/*
+func (inp *Input) EOI() bool {
+	return len(inp.text) == inp.pos
+}
+
+
+}
+
+
 
 
 

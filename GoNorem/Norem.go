@@ -21,11 +21,8 @@ func main() {
 	for {
 		line, err := rl.Readline()
 		if err != nil { break }
-
-		inp := Input {line, 0}
-		res,err := ParseTerm(&inp)
-		if err != nil { break }
-
+		inp := Tokenize(line)
+		res := ParseInt(&inp)
 		fmt.Println(res)
 	}
 	fmt.Println("Goodbye!")
