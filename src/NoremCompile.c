@@ -39,12 +39,10 @@ Term_t* term_compile(Term_t* term) {
                 // we have term in form \x.y, and x is free in y
                 // obviously x == y, it must be \x.x
                 assert(x == t->symb_v);
-                // T[\x.x] -> I
-                return &sing[I];
+                return &sing[I]; // T[\x.x] -> I
             } else if(is_lamb(t)) {
                 // T[\x.\y.E] -> T[\x.T[\y.E]]
-                Term_t* t2 = term_compile(t);
-                return term_compile(new_lamb(x,t2));
+                return term_compile(new_lamb(x,term_compile(t)));
             } else if(is_app(t)) {
                 // T[\x.(E1 E2)] -> (S T[\x.E1] T[\x.E2])
                 return new_app(new_app(&sing[S],
