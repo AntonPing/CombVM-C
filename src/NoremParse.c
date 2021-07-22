@@ -97,7 +97,7 @@ typedef struct Parser_t {
 } Parser_t;
 
 
-void DEBUG_SHOW_PARSER(Parser_t par, Tag_t tag) {
+void DEBUG_SHOW_PARSER(Parser_t par, tag_t tag) {
     if(par.success) {
         printf("rest: %s,",par.text_ptr);
         printf("match:");
@@ -350,7 +350,7 @@ Parser_t parse_operator(Parser_t par) {
 #define OPERATOR(str,tag) \
     if(strcmp(res,str) == 0) { \
         free(res); \
-        par.term_v = &tags[tag]; \
+        par.term_v = &sing[tag]; \
         PARSER_SUCCESS(par); \
     }
     OPERATOR("+",ADDI);

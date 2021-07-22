@@ -14,7 +14,7 @@
 #include <ctype.h>
 #include <uchar.h>
 
-typedef int rc_t
+typedef int rc_t;
 typedef long int_t;
 typedef double real_t;
 typedef char char_t;
@@ -64,11 +64,11 @@ typedef struct Term_t {
         struct { // App, Cons
             struct Term_t* t1;
             struct Term_t* t2;
-        }
+        };
         struct { // Lamb
             symb_t x;
             struct Term_t* t;
-        } Lambda_t;
+        };
     };
 } Term_t;
 
@@ -91,7 +91,7 @@ typedef struct Dict_t {
 } Dict_t;
 
 // Norem.c
-extern Term_t tags[256];
+extern Term_t sing[256];
 Dict_t* dict_get(symb_t key);
 
 // NoremShow.c
@@ -100,18 +100,15 @@ void show_lamb(Term_t* term);
 void show_dict(Dict_t* dict);
 
 // NoremCompile.c
-bool is_tag(Term_t* term);
-bool is_singleton(Term_t* term);
-bool is_atom(Term_t* term);
 bool is_app(Term_t* term);
+bool is_lamb(Term_t* term);
 bool is_var(Term_t* term);
-bool is_lambda(Term_t* term);
 Term_t* term_compile(Term_t* term);
 Term_t* term_link(Term_t* term);
 
 // NoremHeap.c
-Term_t* gc_refer(Term_t* term);
-void gc_defer(Term_t* term);
+//Term_t* gc_refer(Term_t* term);
+//void gc_defer(Term_t* term);
 Term_t* new_app(Term_t* t1, Term_t* t2);
 Term_t* new_cons(Term_t* t1, Term_t* t2);
 Term_t* new_int(int_t value);
@@ -133,12 +130,5 @@ Term_t* eval(Term_t* term);
 symb_t to_symb(char_t* str);
 string_t substr(string_t str, size_t n);
 string_t slice(char_t* start, char_t* end);
-
-/*
-Bind_t* dict_get_bind(symb_t key);
-Bind_t* dict_new_bind(symb_t key);
-void bind_set_text(Bind_t* bind, string_t text);
-void bind_update(Bind_t* bind);
-*/
 
 #endif

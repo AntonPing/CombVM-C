@@ -14,16 +14,16 @@ static Term_t* *heap_ptr;
 void heap_init() {
     LOG("start, init heap");
     for(int i=0; i<POOL_SIZE; i++) {
-        heap_base[i].rc = 0;
+        term_pool[i].rc = 0;
         heap_base[i] = &term_pool[i];
     }
     heap_ceil = &heap_base[POOL_SIZE - 1];
     heap_ptr = &heap_base[POOL_SIZE - 1]
     LOG("init singleton");
-    int i = 0;
-    sing[S].tag = S
-    sing[K].tag = K
-    sing[I].tag = I
+    for(int i=0; i<256; i++) {
+        sing[i].tag = i;
+        sing[i].rc = 65535;
+    }
     LOG("finish");
 }
 
@@ -42,11 +42,12 @@ Term_t* alloc_term() {
     if(heap_ptr == heap_base) {
         PANIC("heap all used!\n");
     } else {
-        assert(*heap_ptr->rc == 0);
+        assert((*heap_ptr)->rc == 0);
         return *heap_ptr--;
     }
 }
 
+/*
 void gc_free(Term_t* term) {
     assert(term != NULL);
     switch(term->tag) {
@@ -77,12 +78,13 @@ void gc_defer(Term_t* term) {
         term->rc --;
     }
 }
+*/
 
 Term_t* new_app(Term_t* t1, Term_t* t2) {
     Term_t* term = alloc_term();
     term->tag = APP;
-    term->t1 = gc_refer(t1);
-    term->t2 = gc_refer(t2);
+    term->t1 = t1;//gc_refer(t1);
+    term->t2 = t2;//gc_refer(t2);
     return term;
 }
 
@@ -127,6 +129,6 @@ Term_t* new_lamb(symb_t x, Term_t* t) {
     Term_t* term = alloc_term();
     term->tag = LAMB;
     term->x = x;
-    term->t = gc_refer(t);
+    term->t = t;//gc_refer(t);
     return term;
 }
