@@ -18,27 +18,30 @@
     Term_t* term = *sp; \
     while(sp > &stack[0]) { \
         sp --; \
-        term = new_app(term,*sp); \
+        term = raw_app(term,*sp); \
     } \
-    NEXT(term); \
+    with = term; \
+    goto eval_loop; \
 } while(0)
 
-#define NEXT(x) \
-    with = x; \
-    goto eval_loop
+#define WITH(x) \
+    with = x
 
 #define PUSH(x) \
     *sp++ = x; \
     assert(sp <= &stack[15])
 
-#define POP_1(x) \
+#define NEXT() \
+    goto eval_loop
+
+#define ARG_1(x) \
     if(sp < &stack[1]) { \
         DOWN_REWIND(); \
     } else { \
         x = *(--sp); \
     }
 
-#define POP_2(x,y) \
+#define ARG_2(x,y) \
     if(sp < &stack[2]) { \
         DOWN_REWIND(); \
     } else { \
@@ -46,7 +49,7 @@
         y = *(--sp); \
     }
 
-#define POP_3(x,y,z) \
+#define ARG_3(x,y,z) \
     if(sp < &stack[3]) { \
         DOWN_REWIND(); \
     } else { \
@@ -54,6 +57,15 @@
         y = *(--sp); \
         z = *(--sp); \
     }
+
+#define EVAL(x,y) \
+    y = eval(x)
+
+#define INC(x) \
+    gc_refer(x)
+
+#define DEC(x) \
+    gc_deref(x)
 
 #define SHOW_STACK() do{ \
     show_term(with); \
@@ -66,8 +78,15 @@
 } while(0)
 
 
-#define EVAL(x) \
-    x = eval(x)
+#define INT_BINOP(result) \
+    ARG_2(x,y); \
+    EVAL(x,a); \
+    EVAL(y,b); \
+    assert(a->tag == INT); \
+    assert(b->tag == INT); \
+    WITH(result); \
+    DEC(x); DEC(y); NEXT()
+
 
 Term_t* eval(Term_t* term) {
     Term_t* stack[16];
@@ -82,57 +101,58 @@ Term_t* eval(Term_t* term) {
 
     eval_loop:
     #ifdef DEBUG
-        show_term(with);
-        printf("\n");
-        //SHOW_STACK();
+        //show_term(with);
+        //printf("\n");
+        SHOW_STACK();
     #endif
 
     assert(with != NULL);
     switch(with->tag) {
-        Term_t *x,*y,*z;//,*a,*b;
+        Term_t *x,*y,*z,*a,*b;
         case APP:
-            PUSH(with->t2);
-            //gc_defer(with);
-            NEXT(with->t1);
+            Term_t* t1 = with->t1;
+            Term_t* t2 = with->t2;
+            if(with->rc == 0) {
+                free_term(with);
+            } else {
+                with->rc --;
+            }
+            PUSH(t2);
+            WITH(t1);
+            NEXT();
         case I:
-            POP_1(x);
-            NEXT(x);
+            ARG_1(x); // x--
+            WITH(x); // x++
+            NEXT(); 
         case K:
-            POP_2(x,y);
-            NEXT(x);
+            ARG_2(x,y); // x-- y--
+            WITH(x); // x++
+            DEC(y); NEXT(); // y=-1
         case S:
-            POP_3(x,y,z);
-            PUSH(new_app(y,z));
-            PUSH(z);
-            NEXT(x);
+            ARG_3(x,y,z); // x-- y-- z--
+            PUSH(raw_app(y,z)); // y++ z++
+            PUSH(z); // z++
+            WITH(x); // x++
+            INC(z); NEXT(); // z=+1
         case ADDI:
-            POP_2(x,y); EVAL(x); EVAL(y);
-            assert(x->tag == INT);
-            assert(y->tag == INT);
-            NEXT(new_int(x->int_v + y->int_v));
+            INT_BINOP(new_int(a->int_v + b->int_v));
         case SUBI:
-            POP_2(x,y); EVAL(x); EVAL(y);
-            assert(x->tag == INT);
-            assert(y->tag == INT);
-            NEXT(new_int(x->int_v - y->int_v));
+            INT_BINOP(new_int(a->int_v - b->int_v));
         case MULI:
-            POP_2(x,y); EVAL(x); EVAL(y);
-            assert(x->tag == INT);
-            assert(y->tag == INT);
-            NEXT(new_int(x->int_v * y->int_v));
+            INT_BINOP(new_int(a->int_v * b->int_v));
         case DIVI:
-            POP_2(x,y); EVAL(x); EVAL(y);
-            assert(x->tag == INT);
-            assert(y->tag == INT);
-            NEXT(new_int(x->int_v / y->int_v));
+            INT_BINOP(new_int(a->int_v / b->int_v));
+
         case NEGI:
-            POP_1(x); EVAL(x);
+            POP_1(x);
+            EVAL(x);
             assert(x->tag == INT);
             NEXT(new_int(x->int_v * -1));
+        
         case IF:
             POP_3(x,y,z); EVAL(x);
             assert(x->tag == BOOL);
-            NEXT(x->bool_v ? y : z);
+            WITH(x->bool_v ? y : z);
         case NOT:
             POP_1(x); EVAL(x);
             assert(x->tag == BOOL);
@@ -159,11 +179,13 @@ Term_t* eval(Term_t* term) {
             NEXT(y);
         case EXIT:
             exit(0);
+
         case SYMB: {
             Dict_t* dict = dict_get(with->symb_v);
             if(dict != NULL) {
                 assert(dict->compiled != NULL);
-                NEXT(dict->compiled);
+                WITH(dict->compiled);
+                NEXT();
             } else {
                 PANIC("undefined symbol!\n");
             }

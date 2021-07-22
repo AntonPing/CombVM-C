@@ -10,7 +10,6 @@ static Term_t* heap_base[POOL_SIZE];
 static Term_t* *heap_ceil;
 static Term_t* *heap_ptr;
 
-
 void heap_init() {
     LOG("start, init heap");
     for(int i=0; i<POOL_SIZE; i++) {
@@ -47,15 +46,16 @@ Term_t* alloc_term() {
     }
 }
 
-/*
 void gc_free(Term_t* term) {
     assert(term != NULL);
     switch(term->tag) {
         case APP:
-            gc_defer(term->t1);
-            gc_defer(term->t2);
+            gc_deref(term->t1);
+            gc_deref(term->t2);
+            break;
         case LAMB:
-            gc_defer(term->t);
+            gc_deref(term->t);
+            break;
         default: {
             // Do Nothing
         }
@@ -69,22 +69,28 @@ Term_t* gc_refer(Term_t* term) {
     return term;
 }
 
-void gc_defer(Term_t* term) {
-    assert(term != NULL);
-    assert(term->rc >= 0);
+void gc_deref(Term_t* term) {
+    assert(term != NULL && term->rc >= 0);
     if(term->rc == 0) {
         gc_free(term);
     } else {
         term->rc --;
     }
 }
-*/
+
+Term_t* raw_app(Term_t* t1, Term_t* t2) {
+    Term_t* term = alloc_term();
+    term->tag = APP;
+    term->t1 = t1;
+    term->t2 = t2;
+    return term;
+}
 
 Term_t* new_app(Term_t* t1, Term_t* t2) {
     Term_t* term = alloc_term();
     term->tag = APP;
-    term->t1 = t1;//gc_refer(t1);
-    term->t2 = t2;//gc_refer(t2);
+    term->t1 = gc_refer(t1);
+    term->t2 = gc_refer(t2);
     return term;
 }
 
@@ -129,6 +135,6 @@ Term_t* new_lamb(symb_t x, Term_t* t) {
     Term_t* term = alloc_term();
     term->tag = LAMB;
     term->x = x;
-    term->t = t;//gc_refer(t);
+    term->t = gc_refer(t);
     return term;
 }
