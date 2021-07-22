@@ -110,6 +110,8 @@ Term_t* term_compile(Term_t* term);
 Term_t* term_link(Term_t* term);
 
 // NoremHeap.c
+Term_t* gc_refer(Term_t* term);
+void gc_defer(Term_t* term);
 Term_t* new_app(Term_t* t1, Term_t* t2);
 Term_t* new_cons(Term_t* t1, Term_t* t2);
 Term_t* new_int(int_t value);

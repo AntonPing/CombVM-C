@@ -48,6 +48,7 @@ Term_t* alloc_term() {
 }
 
 void gc_free(Term_t* term) {
+    assert(term != NULL);
     switch(term->tag) {
         case APP:
             gc_defer(term->t1);
@@ -62,15 +63,18 @@ void gc_free(Term_t* term) {
 }
 
 Term_t* gc_refer(Term_t* term) {
+    assert(term != NULL);
     term->rc ++;
     return term;
 }
 
 void gc_defer(Term_t* term) {
-    term->rc --;
+    assert(term != NULL);
     assert(term->rc >= 0);
     if(term->rc == 0) {
         gc_free(term);
+    } else {
+        term->rc --;
     }
 }
 

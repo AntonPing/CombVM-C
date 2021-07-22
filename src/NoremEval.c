@@ -87,111 +87,121 @@ Term_t* eval(Term_t* term) {
         //SHOW_STACK();
     #endif
 
-    if(with == NULL) {
-        return NULL;
-    } else if(is_singleton(with)) {
-        switch(with - &tags[0]) {
-            Term_t *x,*y,*z;//,*a,*b;
-            case I:
-                POP_1(x);
-                NEXT(x);
-            case K:
-                POP_2(x,y);
-                NEXT(x);
-            case S:
-                POP_3(x,y,z);
-                PUSH(new_app(y,z));
-                PUSH(z);
-                NEXT(x);
-            case ADDI:
-                POP_2(x,y); EVAL(x); EVAL(y);
-                assert(x->tag == &tags[INT]);
-                assert(y->tag == &tags[INT]);
-                NEXT(new_int(x->int_v + y->int_v));
-            case SUBI:
-                POP_2(x,y); EVAL(x); EVAL(y);
-                assert(x->tag == &tags[INT]);
-                assert(y->tag == &tags[INT]);
-                NEXT(new_int(x->int_v - y->int_v));
-            case MULI:
-                POP_2(x,y); EVAL(x); EVAL(y);
-                assert(x->tag == &tags[INT]);
-                assert(y->tag == &tags[INT]);
-                NEXT(new_int(x->int_v * y->int_v));
-            case DIVI:
-                POP_2(x,y); EVAL(x); EVAL(y);
-                assert(x->tag == &tags[INT]);
-                assert(y->tag == &tags[INT]);
-                NEXT(new_int(x->int_v / y->int_v));
-            case NEGI:
-                POP_1(x); EVAL(x);
-                assert(x->tag == &tags[INT]);
-                NEXT(new_int(x->int_v * -1));
-            case IF:
-                POP_3(x,y,z); EVAL(x);
-                assert(x->tag == &tags[BOOL]);
-                NEXT(x->bool_v ? y : z);
-            case NOT:
-                POP_1(x); EVAL(x);
-                assert(x->tag == &tags[BOOL]);
-                NEXT(new_bool(!x->bool_v));
-            case EQL:
-                POP_2(x,y); EVAL(x); EVAL(y);
-                assert(x->tag == &tags[INT]);
-                assert(y->tag == &tags[INT]);
-                NEXT(new_bool(x->int_v == y->int_v));
-            case GRT:
-                POP_2(x,y); EVAL(x); EVAL(y);
-                assert(x->tag == &tags[INT]);
-                assert(y->tag == &tags[INT]);
-                NEXT(new_bool(x->int_v > y->int_v));
-            case LSS:
-                POP_2(x,y); EVAL(x); EVAL(y);
-                assert(x->tag == &tags[INT]);
-                assert(y->tag == &tags[INT]);
-                NEXT(new_bool(x->int_v < y->int_v));
-            case PRINTI:
-                POP_2(x,y); EVAL(x);
-                assert(x->tag == &tags[INT]);
-                printf("printi %ld\n", x->int_v);
-                NEXT(y);
-            case EXIT:
-                exit(0);
-            default:
+    assert(with != NULL);
+    switch(with->tag) {
+        Term_t *root,*after,*x,*y,*z;//,*a,*b;
+        case APP:
+            PUSH(with->t2);
+            //gc_defer(with);
+            NEXT(with->t1);
+        case I:
+            POP_1(x);
+            NEXT(x);
+        case K:
+            POP_2(x,y);
+            NEXT(x);
+        case S: {
+            Term_t* s = with;
+            Term_t* sf = POP();
+            Term_t* sfg = POP();
+            Term_t* sfgx = POP();
+            f = sf->t2;
+            g = sfg->t2;
+            x = sfgx->t2;
+            Term_t* fx = raw_app(f,x);
+            Term_t* gx = raw_app(g,x);
+            Term_t* fx_gx = raw_app(fx,gx);
+            gc_refer(x);
+            
+
+
+            POP_3(root,x,y,z);
+
+
+            after = new_app(new_app(x,z),new_app(y,z));
+            gc_defer(root);
+            gc_defer(x);
+            gc_defer(y);
+            gc_defer(z);
+            NEXT(after);
+        } case ADDI:
+            POP_2(x,y); EVAL(x); EVAL(y);
+            assert(x->tag == &tags[INT]);
+            assert(y->tag == &tags[INT]);
+            NEXT(new_int(x->int_v + y->int_v));
+        case SUBI:
+            POP_2(x,y); EVAL(x); EVAL(y);
+            assert(x->tag == &tags[INT]);
+            assert(y->tag == &tags[INT]);
+            NEXT(new_int(x->int_v - y->int_v));
+        case MULI:
+            POP_2(x,y); EVAL(x); EVAL(y);
+            assert(x->tag == &tags[INT]);
+            assert(y->tag == &tags[INT]);
+            NEXT(new_int(x->int_v * y->int_v));
+        case DIVI:
+            POP_2(x,y); EVAL(x); EVAL(y);
+            assert(x->tag == &tags[INT]);
+            assert(y->tag == &tags[INT]);
+            NEXT(new_int(x->int_v / y->int_v));
+        case NEGI:
+            POP_1(x); EVAL(x);
+            assert(x->tag == &tags[INT]);
+            NEXT(new_int(x->int_v * -1));
+        case IF:
+            POP_3(x,y,z); EVAL(x);
+            assert(x->tag == &tags[BOOL]);
+            NEXT(x->bool_v ? y : z);
+        case NOT:
+            POP_1(x); EVAL(x);
+            assert(x->tag == &tags[BOOL]);
+            NEXT(new_bool(!x->bool_v));
+        case EQL:
+            POP_2(x,y); EVAL(x); EVAL(y);
+            assert(x->tag == &tags[INT]);
+            assert(y->tag == &tags[INT]);
+            NEXT(new_bool(x->int_v == y->int_v));
+        case GRT:
+            POP_2(x,y); EVAL(x); EVAL(y);
+            assert(x->tag == &tags[INT]);
+            assert(y->tag == &tags[INT]);
+            NEXT(new_bool(x->int_v > y->int_v));
+        case LSS:
+            POP_2(x,y); EVAL(x); EVAL(y);
+            assert(x->tag == &tags[INT]);
+            assert(y->tag == &tags[INT]);
+            NEXT(new_bool(x->int_v < y->int_v));
+        case PRINTI:
+            POP_2(x,y); EVAL(x);
+            assert(x->tag == &tags[INT]);
+            printf("printi %ld\n", x->int_v);
+            NEXT(y);
+        case EXIT:
+            exit(0);
+        case SYMB:
+            dict = dict_get(with->symb_v);
+            if(dict != NULL) {
+                assert(dict->compiled != NULL);
+                NEXT(dict->compiled);
+            } else {
+                PANIC("undefined symbol!\n");
+            }
+        case INT:
+        case REAL:
+        case CHAR:
+        case BOOL:
+            if(sp == &stack[0]) {
+                #ifdef DEBUG
+                    printf("return value: ");
+                    show_term(with);
+                    printf("\n");
+                #endif
+                return with;
+            } else {
                 show_term(with); printf("\n");
-                PANIC("unknown singleton!\n");
-        }
-    } else if(is_tag(with->tag)) {
-        switch(with->tag - &tags[0]) {
-            Dict_t* dict;
-            case SYMB:
-                dict = dict_get(with->symb_v);
-                if(dict != NULL) {
-                    assert(dict->compiled != NULL);
-                    NEXT(dict->compiled);
-                } else {
-                    PANIC("undefined symbol!\n");
-                }
-            case INT:
-            case REAL:
-            case CHAR:
-            case BOOL:
-                if(sp == &stack[0]) {
-                    #ifdef DEBUG
-                        printf("return value: ");
-                        show_term(with);
-                        printf("\n");
-                    #endif
-                    return with;
-                } else {
-                    show_term(with); printf("\n");
-                    PANIC("basic data can't be function!\n");
-                }
-            default:
-                PANIC("TODO");
-        }
-    } else { // is_app(with)
-        PUSH(with->t2);
-        NEXT(with->t1);
+                PANIC("basic data can't be function!\n");
+            }
+        default:
+            PANIC("Unknown tag when eval term!\n");
     }
 }
