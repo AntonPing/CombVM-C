@@ -46,7 +46,7 @@ Term_t* alloc_term() {
         return *heap_ptr--;
     }
 }
-
+/*
 void gc_free(Term_t* term) {
     assert(term != NULL);
     PANIC("gc free!\n");
@@ -89,6 +89,7 @@ Term_t* raw_app(Term_t* t1, Term_t* t2) {
     term->t2 = t2;
     return term;
 }
+*/
 
 Term_t* new_app(Term_t* t1, Term_t* t2) {
     Term_t* term = alloc_term();
