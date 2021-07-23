@@ -11,22 +11,23 @@ static Term_t* *heap_ceil;
 static Term_t* *heap_ptr;
 
 void heap_init() {
-    LOG("start, init heap");
+    LOG("start, init heap\n");
     for(int i=0; i<POOL_SIZE; i++) {
         term_pool[i].rc = 0;
         heap_base[i] = &term_pool[i];
     }
     heap_ceil = &heap_base[POOL_SIZE - 1];
-    heap_ptr = &heap_base[POOL_SIZE - 1]
-    LOG("init singleton");
+    heap_ptr = &heap_base[POOL_SIZE - 1];
+    LOG("init singleton\n");
     for(int i=0; i<256; i++) {
         sing[i].tag = i;
         sing[i].rc = 65535;
     }
-    LOG("finish");
+    LOG("finish\n");
 }
 
 void free_term(Term_t* term) {
+    PANIC("term free!\n");
     assert(heap_ptr >= heap_base && heap_ptr <= heap_ceil);
     if(heap_ptr == heap_ceil) {
         PANIC("heap overflow, this should never heappen!\n");
@@ -48,6 +49,7 @@ Term_t* alloc_term() {
 
 void gc_free(Term_t* term) {
     assert(term != NULL);
+    PANIC("gc free!\n");
     switch(term->tag) {
         case APP:
             gc_deref(term->t1);
@@ -64,12 +66,14 @@ void gc_free(Term_t* term) {
 }
 
 Term_t* gc_refer(Term_t* term) {
+    PANIC("gc disabled!\n");
     assert(term != NULL);
     term->rc ++;
     return term;
 }
 
 void gc_deref(Term_t* term) {
+    PANIC("gc disabled!\n");
     assert(term != NULL && term->rc >= 0);
     if(term->rc == 0) {
         gc_free(term);
@@ -89,8 +93,8 @@ Term_t* raw_app(Term_t* t1, Term_t* t2) {
 Term_t* new_app(Term_t* t1, Term_t* t2) {
     Term_t* term = alloc_term();
     term->tag = APP;
-    term->t1 = gc_refer(t1);
-    term->t2 = gc_refer(t2);
+    term->t1 = t1;//gc_refer(t1);
+    term->t2 = t2;//gc_refer(t2);
     return term;
 }
 
@@ -135,6 +139,6 @@ Term_t* new_lamb(symb_t x, Term_t* t) {
     Term_t* term = alloc_term();
     term->tag = LAMB;
     term->x = x;
-    term->t = gc_refer(t);
+    term->t = t;//gc_refer(t);
     return term;
 }

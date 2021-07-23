@@ -84,7 +84,7 @@ bool symb_list_lookup(symb_t symb, Symb_List_t* list) {
 }
 
 Term_t* term_link_helper(Term_t* term, Symb_List_t* list) {
-    //show_term(term); printf("\n");
+    PANIC("static linking disabled");
     if(term == NULL) {
         PANIC("NULL!\n");
     } else if(is_var(term)) {
@@ -117,6 +117,7 @@ Term_t* term_link_helper(Term_t* term, Symb_List_t* list) {
 }
 
 Term_t* term_link(Term_t* term) {
+    PANIC("static linking disabled");
     return term_link_helper(term, NULL);
 }
 

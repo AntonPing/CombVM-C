@@ -16,6 +16,7 @@ Dict_t* dict_get(symb_t key) {
 }
 
 Dict_t* dict_new(symb_t key) {
+    LOG("new key of dictionary: %s\n", key);
     assert(dict_get(key) == NULL);
     Dict_t* res = malloc(sizeof(Dict_t));
     res->name = key;
@@ -71,6 +72,7 @@ void command_define(string_t text, bool update) {
 }
 
 void command_relink() {
+    PANIC("static linking disabled!\n");
     Dict_t* ptr = root;
     while(ptr != NULL) {
         ptr->linked = NULL;

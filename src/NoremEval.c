@@ -14,7 +14,7 @@
 */
 
 #define DOWN_REWIND() do{ \
-    LOG("down rewind\n"); \
+    PANIC("down rewind\n"); \
     Term_t* term = *sp; \
     while(sp > &stack[0]) { \
         sp --; \
@@ -24,15 +24,16 @@
     goto eval_loop; \
 } while(0)
 
-#define WITH(x) \
-    with = x
-
 #define PUSH(x) \
     *sp++ = x; \
     assert(sp <= &stack[15])
 
-#define NEXT() \
+#define NEXT(x) \
+    with = x; \
     goto eval_loop
+
+#define EVAL(x) \
+    x = eval(x)
 
 #define ARG_1(x) \
     if(sp < &stack[1]) { \
@@ -58,15 +59,6 @@
         z = *(--sp); \
     }
 
-#define EVAL(x,y) \
-    y = eval(x)
-
-#define INC(x) \
-    gc_refer(x)
-
-#define DEC(x) \
-    gc_deref(x)
-
 #define SHOW_STACK() do{ \
     show_term(with); \
     Term_t** ptr = sp; \
@@ -77,21 +69,12 @@
     printf("\n"); \
 } while(0)
 
-
-#define INT_BINOP(result) \
-    ARG_2(x,y); \
-    EVAL(x,a); \
-    EVAL(y,b); \
-    assert(a->tag == INT); \
-    assert(b->tag == INT); \
-    WITH(result); \
-    DEC(x); DEC(y); NEXT()
-
-
 Term_t* eval(Term_t* term) {
     Term_t* stack[16];
     Term_t** sp = &stack[0];
     Term_t* with = term;
+
+    assert(with != NULL);
 
     #ifdef DEBUG
         printf("eval call: ");
@@ -105,73 +88,95 @@ Term_t* eval(Term_t* term) {
         //printf("\n");
         SHOW_STACK();
     #endif
-
-    assert(with != NULL);
+    
     switch(with->tag) {
-        Term_t *x,*y,*z,*a,*b;
+        Term_t *x,*y,*z;
         case APP:
-            Term_t* t1 = with->t1;
-            Term_t* t2 = with->t2;
-            if(with->rc == 0) {
-                free_term(with);
-            } else {
-                with->rc --;
-            }
-            PUSH(t2);
-            WITH(t1);
-            NEXT();
+            PUSH(with->t2);
+            NEXT(with->t1);
         case I:
-            ARG_1(x); // x--
-            WITH(x); // x++
-            NEXT(); 
+            ARG_1(x);
+            NEXT(x);
         case K:
-            ARG_2(x,y); // x-- y--
-            WITH(x); // x++
-            DEC(y); NEXT(); // y=-1
+            ARG_2(x,y);
+            NEXT(x);
         case S:
-            ARG_3(x,y,z); // x-- y-- z--
-            PUSH(raw_app(y,z)); // y++ z++
-            PUSH(z); // z++
-            WITH(x); // x++
-            INC(z); NEXT(); // z=+1
-        case ADDI:
-            INT_BINOP(new_int(a->int_v + b->int_v));
-        case SUBI:
-            INT_BINOP(new_int(a->int_v - b->int_v));
-        case MULI:
-            INT_BINOP(new_int(a->int_v * b->int_v));
-        case DIVI:
-            INT_BINOP(new_int(a->int_v / b->int_v));
+            ARG_3(x,y,z);
+            PUSH(new_app(y,z));
+            PUSH(z);
+            NEXT(x);
+        
+        #define BINOP(assert1,assert2,result) do { \
+            ARG_2(x,y); \
+            EVAL(x); \
+            EVAL(y); \
+            assert(assert1); \
+            assert(assert2); \
+            NEXT(result); \
+        } while(0)
 
-        case NEGI:
-            POP_1(x);
-            EVAL(x);
-            assert(x->tag == INT);
-            NEXT(new_int(x->int_v * -1));
+        case ADDI: BINOP(
+            x->tag == INT,
+            y->tag == INT,
+            new_int(x->int_v + y->int_v)
+        );
+        case SUBI: BINOP(
+            x->tag == INT,
+            y->tag == INT,
+            new_int(x->int_v - y->int_v)
+        );
+        case MULI: BINOP(
+            x->tag == INT,
+            y->tag == INT,
+            new_int(x->int_v * y->int_v)
+        );
+        case DIVI: BINOP(
+            x->tag == INT,
+            y->tag == INT,
+            new_int(x->int_v / y->int_v)
+        );
+        case EQL: BINOP(
+            x->tag == INT,
+            y->tag == INT,
+            new_bool(x->int_v == y->int_v)
+        );
+        case GRT: BINOP(
+            x->tag == INT,
+            y->tag == INT,
+            new_bool(x->int_v > y->int_v)
+        );
+        case LSS: BINOP(
+            x->tag == INT,
+            y->tag == INT,
+            new_bool(x->int_v < y->int_v)
+        );
+        #undef BINOP
+
+        #define UNIOP(assert1,result) do { \
+            ARG_1(x); \
+            EVAL(x); \
+            assert(assert1); \
+            NEXT(result); \
+        } while(0)
+
+        case NEGI: UNIOP(
+            x->tag == INT,
+            new_int(x->int_v * -1)
+        );
+        case NOT: UNIOP(
+            x->tag == BOOL,
+            new_bool(!x->bool_v)
+        );
+
+        #undef UNIOP
         
         case IF:
-            POP_3(x,y,z); EVAL(x);
+            ARG_3(x,y,z);
+            EVAL(x);
             assert(x->tag == BOOL);
-            WITH(x->bool_v ? y : z);
-        case NOT:
-            POP_1(x); EVAL(x);
-            assert(x->tag == BOOL);
-            NEXT(new_bool(!x->bool_v));
-        case EQL:
-            POP_2(x,y); EVAL(x); EVAL(y);
-            assert(x->tag == INT);
-            assert(y->tag == INT);
-            NEXT(new_bool(x->int_v == y->int_v));
-        case GRT:
-            POP_2(x,y); EVAL(x); EVAL(y);
-            assert(x->tag == INT);
-            assert(y->tag == INT);
-            NEXT(new_bool(x->int_v > y->int_v));
-        case LSS:
-            POP_2(x,y); EVAL(x); EVAL(y);
-            assert(x->tag == INT);
-            assert(y->tag == INT);
-            NEXT(new_bool(x->int_v < y->int_v));
+            NEXT(x->bool_v ? y : z);
+        
+        /*
         case PRINTI:
             POP_2(x,y); EVAL(x);
             assert(x->tag == INT);
@@ -179,13 +184,17 @@ Term_t* eval(Term_t* term) {
             NEXT(y);
         case EXIT:
             exit(0);
+        */
 
         case SYMB: {
             Dict_t* dict = dict_get(with->symb_v);
             if(dict != NULL) {
                 assert(dict->compiled != NULL);
-                WITH(dict->compiled);
-                NEXT();
+                LOG("dynamic linking %s ...\n",with->symb_v);
+                //show_term(dict->compiled);
+                //printf("\nHERE\n");
+                //LOG("dynamic linking!\n");
+                NEXT(dict->compiled);
             } else {
                 PANIC("undefined symbol!\n");
             }
@@ -202,7 +211,7 @@ Term_t* eval(Term_t* term) {
                 #endif
                 return with;
             } else {
-                show_term(with); printf("\n");
+                SHOW_STACK();
                 PANIC("basic data can't be function!\n");
             }
         default:
