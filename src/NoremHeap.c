@@ -5,27 +5,22 @@
 Term_t sing[256];
 
 #define POOL_SIZE 65536
-static Term_t term_pool[POOL_SIZE];
-static Term_t* heap_base[POOL_SIZE];
-static Term_t* *heap_ceil;
-static Term_t* *heap_ptr;
+static Term_t heap_base[POOL_SIZE];
+static Term_t* heap_ceil;
+static Term_t* heap_ptr;
 
 void heap_init() {
     LOG("start, init heap\n");
-    for(int i=0; i<POOL_SIZE; i++) {
-        term_pool[i].rc = 0;
-        heap_base[i] = &term_pool[i];
-    }
     heap_ceil = &heap_base[POOL_SIZE - 1];
-    heap_ptr = &heap_base[POOL_SIZE - 1];
+    heap_ptr = &heap_base[0];
     LOG("init singleton\n");
     for(int i=0; i<256; i++) {
         sing[i].tag = i;
-        sing[i].rc = 65535;
     }
     LOG("finish\n");
 }
 
+/*
 void free_term(Term_t* term) {
     PANIC("term free!\n");
     assert(heap_ptr >= heap_base && heap_ptr <= heap_ceil);
@@ -36,16 +31,17 @@ void free_term(Term_t* term) {
         *heap_ptr = term;
     }
 }
+*/
 
 Term_t* alloc_term() {
     assert(heap_ptr >= heap_base && heap_ptr <= heap_ceil);
-    if(heap_ptr == heap_base) {
+    if(heap_ptr == heap_ceil) {
         PANIC("heap all used!\n");
     } else {
-        assert((*heap_ptr)->rc == 0);
-        return *heap_ptr--;
+        return heap_ptr++;
     }
 }
+
 /*
 void gc_free(Term_t* term) {
     assert(term != NULL);
@@ -82,19 +78,12 @@ void gc_deref(Term_t* term) {
     }
 }
 
-Term_t* raw_app(Term_t* t1, Term_t* t2) {
-    Term_t* term = alloc_term();
-    term->tag = APP;
-    term->t1 = t1;
-    term->t2 = t2;
-    return term;
-}
 */
 
 Term_t* new_app(Term_t* t1, Term_t* t2) {
     Term_t* term = alloc_term();
     term->tag = APP;
-    term->t1 = t1;//gc_refer(t1);
+    term->t1 = t1;
     term->t2 = t2;//gc_refer(t2);
     return term;
 }

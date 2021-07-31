@@ -14,7 +14,6 @@
 #include <ctype.h>
 #include <uchar.h>
 
-typedef int rc_t;
 typedef long int_t;
 typedef double real_t;
 typedef char char_t;
@@ -41,7 +40,8 @@ typedef char* string_t;
 
 typedef enum tag_t {
     INT=0, REAL, CHAR, BOOL, SYMB,
-    APP, LAMB, FUNC, CONS, TERM, STR,
+    APP, LAMB, FUNC,
+    CONS, TERM, STR,
 
     I=100,K,S,B,C,SP,BS,CP,Y,
     ADDI,SUBI,MULI,DIVI,NEGI,
@@ -52,9 +52,12 @@ typedef enum tag_t {
     NIL,
 } tag_t;
 
+struct Term_t;
+
+
+
 typedef struct Term_t {
     tag_t tag;
-    rc_t rc;
     union {
         int_t int_v;
         real_t real_v;
@@ -69,8 +72,11 @@ typedef struct Term_t {
             symb_t x;
             struct Term_t* t;
         };
+        Task_t task_v;
     };
 } Term_t;
+
+
 
 /*
 typedef struct Type_t {

@@ -1,73 +1,6 @@
 #include "Norem.h"
-/*
-#define DOWN_REWIND() \
-    while(sp != &stack[0]) {} \
-        sp --; \
-        with = new_app(with,*sp); \
-    } \
-    return with
 
-#define UP_REWIND(x) \
-    sp = &stack[13]; \
-    with = eval(new_app(new_app(new_app( \
-        x,stack[15]),stack[14]),stack[13]));
-*/
 
-#define DOWN_REWIND() do{ \
-    PANIC("down rewind\n"); \
-    Term_t* term = *sp; \
-    while(sp > &stack[0]) { \
-        sp --; \
-        term = raw_app(term,*sp); \
-    } \
-    with = term; \
-    goto eval_loop; \
-} while(0)
-
-#define PUSH(x) \
-    *sp++ = x; \
-    assert(sp <= &stack[15])
-
-#define NEXT(x) \
-    with = x; \
-    goto eval_loop
-
-#define EVAL(x) \
-    x = eval(x)
-
-#define ARG_1(x) \
-    if(sp < &stack[1]) { \
-        DOWN_REWIND(); \
-    } else { \
-        x = *(--sp); \
-    }
-
-#define ARG_2(x,y) \
-    if(sp < &stack[2]) { \
-        DOWN_REWIND(); \
-    } else { \
-        x = *(--sp); \
-        y = *(--sp); \
-    }
-
-#define ARG_3(x,y,z) \
-    if(sp < &stack[3]) { \
-        DOWN_REWIND(); \
-    } else { \
-        x = *(--sp); \
-        y = *(--sp); \
-        z = *(--sp); \
-    }
-
-#define SHOW_STACK() do{ \
-    show_term(with); \
-    Term_t** ptr = sp; \
-    while(ptr > &stack[0]) { \
-        printf(", "); \
-        show_term(*(--ptr)); \
-    }\
-    printf("\n"); \
-} while(0)
 
 Term_t* eval(Term_t* term) {
     Term_t* stack[16];
@@ -209,6 +142,10 @@ Term_t* eval(Term_t* term) {
                     show_term(with);
                     printf("\n");
                 #endif
+                // RETURN PART
+                
+
+
                 return with;
             } else {
                 SHOW_STACK();
@@ -217,4 +154,101 @@ Term_t* eval(Term_t* term) {
         default:
             PANIC("Unknown tag when eval term!\n");
     }
+}
+
+
+
+
+
+#define UPDATE(a,b) \
+    *a = *b;
+
+#define RETURN() \
+    while(sp-- != NULL) {}
+
+#define NEXT(x) \
+    with = x; \
+    continue
+
+#define PUSH(x) \
+    sp++; \
+    *sp = x; \
+
+#define POP(x) \
+    x = *sp--; \
+    if(x == NULL) { NEXT(*sp); } 
+
+#define POP_ARG(x) \
+    x = *sp--; \
+    if(x == NULL) { \
+        NEXT(*sp); \
+    } else { \
+        x = x->t2; \
+    }
+
+#define MOV_ARG(x,t) \
+    x = t->t2
+
+#define SHOW_STACK() do{ \
+    show_term(with); \
+    Term_t** ptr = sp; \
+    while(ptr > &stack[0]) { \
+        printf(", "); \
+        show_term(*(--ptr)); \
+    }\
+    printf("\n"); \
+} while(0)
+
+typedef struct Task_t {
+    Term_t* *stack;
+    size_t sp;
+    Term_t* with;
+} Task_t;
+
+void eval(Task_t* task) {
+    Term_t** stack = task->stack;
+    size_t
+    Term_t with = task->with;
+    //assert(*sp != NULL);
+    
+    switch(with->tag) {
+        Term_t *r,*x,*y,*z;
+        case APP:
+            PUSH(with);
+            NEXT(with->t1);
+        case I:
+            POP(r);
+            MOV_ARG(x,r);
+            UPDATE(r,x);
+            NEXT(r);
+        case K:
+            POP_ARG(x);
+            POP(r);
+            MOV_ARG(y,r);
+            UPDATE(r,x);
+            NEXT(r);
+        case S:
+            POP_ARG(x);
+            POP_ARG(y);
+            POP(r);
+            MOV_ARG(z,r);
+            UPDATE(r,new_app(new_app(x,z),new_app(y,z)));
+            NEXT(r);
+        case ADDI:
+            POP_ARG(x);
+            POP(r);
+            MOV_ARG(y);
+
+        
+
+
+
+
+
+
+
+
+    }
+
+
 }
