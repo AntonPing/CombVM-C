@@ -39,11 +39,11 @@ typedef char* string_t;
 
 
 typedef enum tag_t {
-    INT=0, REAL, CHAR, BOOL, SYMB,
+    INT, REAL, CHAR, BOOL, SYMB,
     APP, LAMB, FUNC,
     CONS, TERM, STR,
 
-    I=100,K,S,B,C,SP,BS,CP,Y,
+    I,K,S,B,C,SP,BS,CP,Y,
     ADDI,SUBI,MULI,DIVI,NEGI,
     IF,NOT,EQL,GRT,LSS,
     //ALLOC,FREE,
@@ -51,9 +51,6 @@ typedef enum tag_t {
     PRINTI,EXIT,
     NIL,
 } tag_t;
-
-struct Term_t;
-
 
 
 typedef struct Term_t {
@@ -72,20 +69,16 @@ typedef struct Term_t {
             symb_t x;
             struct Term_t* t;
         };
-        Task_t task_v;
     };
 } Term_t;
 
 
+typedef struct Task_t {
+    Term_t* *stack_base;
+    Term_t* *stack_ceil;
+    Term_t* *sp;
+} Task_t;
 
-/*
-typedef struct Type_t {
-    string_t name;
-    string_t (*format)(Term_t*);
-    void (*refer)();
-    void (*defer)();
-} Type_t;
-*/
 
 typedef struct Dict_t {
     symb_t name;
