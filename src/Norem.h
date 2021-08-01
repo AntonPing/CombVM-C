@@ -128,7 +128,8 @@ bool term_parse(char_t* str, Term_t** ret);
 bool definition(char_t* str, symb_t* key, Term_t** value);
 
 // NoremEval.c
-Term_t* eval(Term_t* term);
+Task_t* eval(Task_t* task, int_t timeslice);
+void task_test();
 
 // NoremSymb.c
 symb_t to_symb(char_t* str);

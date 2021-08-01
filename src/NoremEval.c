@@ -142,8 +142,8 @@ Term_t* eval(Task_t* task, int_t timeslice) {
 pthread_t thread_pool[NUM_THREADS];
 Task_t* *task_queue_base;
 Task_t* *task_queue_ceil;
-task_t* task_head;
-task_t* task_tail;
+Task_t* task_head;
+Task_t* task_tail;
 // task_head + 1 == task_tail
 // when and only when there is no task
 // task_head == task_tail
@@ -238,9 +238,10 @@ void* thread_loop(){
 
 void task_test() {
     task_module_init();
-    Term_t* test = new_app(new_app(&sing[PRINTI],))
-    send_task(new_task())
-
-
-
+    Term_t* test = new_app(new_app(&sing[PRINTI],new_int(42)),&sing[END]);
+    while(true) {
+        send_task(new_task(test));
+        sleep(1);
+    }
+    task_module_exit();
 }

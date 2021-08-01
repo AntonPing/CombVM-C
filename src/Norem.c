@@ -146,6 +146,8 @@ void repl() {
 
     heap_init();
 
+    task_test();
+
     while(true) {
 
         /* Output our prompt and get input */
