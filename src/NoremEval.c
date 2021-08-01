@@ -5,21 +5,6 @@
 Term_t FRAME;
 Term_t HOLE;
 
-
-Task_t* new_task(Term_t* with) {
-    Task_t* task = malloc(sizeof(Task_t));
-    Term_t* *stack = malloc(sizeof(Term_t*) * STACK_SIZE);
-    stack[0] = &HOLE;
-    stack[1] = &sing[EXIT];
-    stack[2] = &FRAME;
-    stack[3] = with;
-    task->stack_base = stack;
-    task->stack_ceil = &stack[STACK_SIZE - 1];
-    task->sp = &stack[2];
-    task->with = with;
-    return task;
-}
-
 #define PUSH(reg) \
     sp ++; \
     assert(sp <= stack_ceil); \
@@ -125,6 +110,8 @@ Term_t* eval(Task_t* task, int_t timeslice) {
                             sp[-i] = with;
                         }
                     }
+                    WITH(sp[-1]);
+                    POP(2);
                     NEXT(2);
                 } else {
                     printf("DATA1: ");
@@ -153,11 +140,14 @@ Term_t* eval(Task_t* task, int_t timeslice) {
 #define NUM_THREADS 8
 #define TASK_QUEUE_LEN 256
 pthread_t thread_pool[NUM_THREADS];
-Task_t* task_queue[TASK_QUEUE_LEN];
-const Task_t TASK_QUEUE_END = task_queue + TASK_QUEUE_LEN;
-task_t* head_task; // 第一个任务指针（如果有任务的话）
-task_t* task_tail; // 最后一个任务指针的后面一格
-// 当head_task == task_tail，池中没有任务
+Task_t* *task_queue_base;
+Task_t* *task_queue_ceil;
+task_t* task_head;
+task_t* task_tail;
+// task_head + 1 == task_tail
+// when and only when there is no task
+// task_head == task_tail
+// when and only when task full 
 
 atomic_flag task_pool_lock = ATOMIC_FLAG_INIT;
 
@@ -168,13 +158,15 @@ atomic_flag task_pool_lock = ATOMIC_FLAG_INIT;
     atomic_flag_clear(&task_pool_lock)
 
 void task_module_init() {
-    head_task = task_queue;
-    task_tail = task_queue;
+    task_queue_base = malloc(sizeof(Task_t*) * TASK_QUEUE_LEN);
+    task_queue_ceil = &task_queue_base[TASK_QUEUE_LEN - 1];
+    task_head = &task_queue_base[0];
+    task_tail = &task_queue_base[1];
     for(int i=0; i<NUM_THREADS; i++){
         //参数依次是：创建的线程id，线程参数，调用的函数，传入的函数参数
         int ret = pthread_create(&thread_pool[i], NULL, thread_loop, NULL);
         if (ret != 0) {
-            printf("pthread_create error: %d\n", ret);
+            PANIC("pthread_create error: %d\n", ret);
         }
     }
 }
@@ -185,39 +177,70 @@ void task_module_exit() {
     }
 }
 
-void send_task(task_t task){
+Task_t* new_task(Term_t* with) {
+    Task_t* task = malloc(sizeof(Task_t));
+    Term_t* *stack = malloc(sizeof(Term_t*) * STACK_SIZE);
+    stack[0] = &HOLE;
+    stack[1] = &sing[EXIT];
+    stack[2] = &FRAME;
+    stack[3] = with;
+    task->stack_base = stack;
+    task->stack_ceil = &stack[STACK_SIZE - 1];
+    task->sp = &stack[2];
+    task->with = with;
+    return task;
+}
+
+Task_t* fetch_task() {
     task_pool_lock();
-    if(task_tail < TASK_QUEUE_END) {
-        *task_tail++ = task;
+    if(task_head + 1 == task_tail) {
+        return NULL;
     } else {
-        task_tail = task_queue;
-        *task_tail++ = task;
+        if(task_head == task_queue_ceil) {
+            task_head = task_queue_base;
+        } else {
+            task_head ++;
+        }
+        return *task_head;
+    }
+    task_pool_unlock();
+}
+
+
+void send_task(Task_t* task){
+    task_pool_lock();
+    if(task_head == task_tail) {
+        PANIC("task overflow! MAX=%d\n",TASK_QUEUE_LEN);
+    } else {
+        *task_tail = task;
+        if(task_tail == task_queue_ceil) {
+            task_tail = task_queue_base;
+        } else {
+            task_tail ++;
+        }
     }
     task_pool_unlock();
 }
 
 void* thread_loop(){
     while(true) {
-        task_pool_lock();
-        if(head_task == task_tail) {
-            // 进程池中没有任务则休眠1秒
-            task_pool_unlock();
-            sleep(1);
+        Task_t task = fetch_task();
+        if(task == NULL) {
+            sleep(1); // sleep and wait for new task
         } else {
-            // fetch a task
-            Task_t task = *head_task;
-            if(head_task < TASK_QUEUE_END) {
-                head_task ++;
-            } else {
-                head_task = task_queue; // 指针溢出，复位
-            }
-            task_pool_unlock();
-            task = eval(task,256); // 执行任务
+            task = eval(task, 256); // run the timeslice 
             if(task != NULL) {
-                // send back the task
-
-
+                send_task(task); // send back the task
             }
         }
     }
+}
+
+void task_test() {
+    task_module_init();
+    Term_t* test = new_app(new_app(&sing[PRINTI],))
+    send_task(new_task())
+
+
+
 }
