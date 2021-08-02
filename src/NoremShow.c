@@ -78,6 +78,8 @@ void show_app_list(Term_t* term) {
     }
 }
 
+
+
 void show_dict(Dict_t* dict) {
     puts("-------------------------");
     puts("| DICTIONARY DEFINITION |");

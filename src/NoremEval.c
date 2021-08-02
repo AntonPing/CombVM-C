@@ -2,9 +2,6 @@
 
 #define STACK_SIZE 32
 
-Term_t FRAME;
-Term_t HOLE;
-
 #define PUSH(reg) \
     sp ++; \
     assert(sp <= stack_ceil); \
@@ -32,21 +29,54 @@ Term_t HOLE;
     WITH(x); \
     NEXT(2)
 
-
 #define RESERVE(n) \
     for(int i=0; i<n; i++) \
         assert(sp[-i] != &FRAME)
 
+Term_t FRAME;
+Term_t HOLE;
 
-Term_t* eval(Task_t* task, int_t timeslice) {
+Task_t* new_task(Term_t* with) {
+    Task_t* task = malloc(sizeof(Task_t));
+    Term_t* *stack = malloc(sizeof(Term_t*) * STACK_SIZE);
+    stack[0] = &HOLE;
+    stack[1] = &sing[EXIT];
+    stack[2] = &FRAME;
+    stack[3] = with;
+    task->stack_base = stack;
+    task->stack_ceil = &stack[STACK_SIZE - 1];
+    task->sp = &stack[3];
+    return task;
+}
+
+void show_task(Task_t* task) {
+    Term_t* *stack_base = task->stack_base;
+    //Term_t* *stack_ceil = task->stack_ceil;
+    Term_t* *sp = task->sp;
+    
+    puts("-------------------------");
+    for(Term_t* *ptr = sp; ptr >= stack_base; ptr --) {
+        assert(*ptr != NULL);
+        if(*ptr == &FRAME) {
+            puts("-------------------------");
+        } else if(*ptr == &HOLE) {
+            puts("| &HOLE");
+        } else {
+            printf("| "); show_term(*ptr); printf("\n");
+        }
+    }
+    puts("-------------------------");
+}
+
+Task_t* eval(Task_t* task, int_t timeslice) {
+    //show_task(task);
+
     // load the task
-    Task_t* task_return = task;
     Term_t* *stack_base = task->stack_base;
     Term_t* *stack_ceil = task->stack_ceil;
     Term_t* *sp = task->sp;
     Term_t* with = *sp--; // pop top as with
     
-
     // run timeslice
     assert(timeslice >= 0);
     int_t step = timeslice;
@@ -83,9 +113,14 @@ Term_t* eval(Task_t* task, int_t timeslice) {
                 WITH(new_int(ARG_1->int_v + ARG_2->int_v));
                 POP(2);
                 NEXT(2);
+            case PRINTI:
+                RESERVE(2);
+                if(ARG_1->tag != INT) { CALL(ARG_1); }
+                printf("printi: %ld\n",ARG_1->int_v);
+                WITH(ARG_2);
+                NEXT(5);
             case EXIT:
-                task_return = NULL;
-                goto save_content;
+                return NULL;
             case SYMB: {
                 Dict_t* dict = dict_get(with->symb_v);
                 if(dict != NULL) {
@@ -105,7 +140,6 @@ Term_t* eval(Task_t* task, int_t timeslice) {
                 if(sp[0] == &FRAME) {
                     // cover the hole
                     for(int i=0; ; i++) {
-                        assert(sp[-i] != &ROOT);
                         if(sp[-i] == &HOLE) {
                             sp[-i] = with;
                         }
@@ -117,7 +151,7 @@ Term_t* eval(Task_t* task, int_t timeslice) {
                     printf("DATA1: ");
                     show_term(with);
                     printf("\nDATA2:");
-                    show_term(x);
+                    show_term(sp[0]);
                     PANIC("\nCannot apply data to data!\n");
                 }
             default:
@@ -125,12 +159,11 @@ Term_t* eval(Task_t* task, int_t timeslice) {
         }
     }
 
-    save_content:
     PUSH(with);
     task->stack_base = stack_base;
     task->stack_ceil = stack_ceil;
     task->sp = sp;
-    return NULL;
+    return task;
 }
 
 /////////////////////////
@@ -142,8 +175,8 @@ Term_t* eval(Task_t* task, int_t timeslice) {
 pthread_t thread_pool[NUM_THREADS];
 Task_t* *task_queue_base;
 Task_t* *task_queue_ceil;
-Task_t* task_head;
-Task_t* task_tail;
+Task_t* *task_head;
+Task_t* *task_tail;
 // task_head + 1 == task_tail
 // when and only when there is no task
 // task_head == task_tail
@@ -157,6 +190,7 @@ atomic_flag task_pool_lock = ATOMIC_FLAG_INIT;
 #define task_pool_unlock() \
     atomic_flag_clear(&task_pool_lock)
 
+void* thread_loop();
 void task_module_init() {
     task_queue_base = malloc(sizeof(Task_t*) * TASK_QUEUE_LEN);
     task_queue_ceil = &task_queue_base[TASK_QUEUE_LEN - 1];
@@ -177,35 +211,25 @@ void task_module_exit() {
     }
 }
 
-Task_t* new_task(Term_t* with) {
-    Task_t* task = malloc(sizeof(Task_t));
-    Term_t* *stack = malloc(sizeof(Term_t*) * STACK_SIZE);
-    stack[0] = &HOLE;
-    stack[1] = &sing[EXIT];
-    stack[2] = &FRAME;
-    stack[3] = with;
-    task->stack_base = stack;
-    task->stack_ceil = &stack[STACK_SIZE - 1];
-    task->sp = &stack[2];
-    task->with = with;
-    return task;
-}
-
 Task_t* fetch_task() {
     task_pool_lock();
+    Task_t* result;
     if(task_head + 1 == task_tail) {
-        return NULL;
+        result = NULL;
+    } else if(task_head == task_queue_ceil
+            && task_tail == task_queue_base) {
+        result = NULL;
     } else {
         if(task_head == task_queue_ceil) {
             task_head = task_queue_base;
         } else {
             task_head ++;
         }
-        return *task_head;
+        result = *task_head;
     }
     task_pool_unlock();
+    return result;
 }
-
 
 void send_task(Task_t* task){
     task_pool_lock();
@@ -224,7 +248,7 @@ void send_task(Task_t* task){
 
 void* thread_loop(){
     while(true) {
-        Task_t task = fetch_task();
+        Task_t* task = fetch_task();
         if(task == NULL) {
             sleep(1); // sleep and wait for new task
         } else {
@@ -238,7 +262,8 @@ void* thread_loop(){
 
 void task_test() {
     task_module_init();
-    Term_t* test = new_app(new_app(&sing[PRINTI],new_int(42)),&sing[END]);
+    Term_t* test = new_app(new_app(&sing[PRINTI],new_int(42)),&sing[EXIT]);
+    test = term_compile(test);
     while(true) {
         send_task(new_task(test));
         sleep(1);

@@ -145,12 +145,13 @@ void repl() {
     puts("Type :quit to Exit\n");
 
     heap_init();
-
     task_test();
 
+    /*
+    
     while(true) {
 
-        /* Output our prompt and get input */
+        // Output our prompt and get input
         char* input = readline("> ");
         add_history(input);
 
@@ -162,7 +163,7 @@ void repl() {
                 //command_relink();
                 term = term_compile(term);
                 //term = term_link(term);
-                term = eval(term);
+                //term = eval(term);
                 show_term(term);
                 printf("\n");
             } else {
@@ -172,6 +173,7 @@ void repl() {
         // Free retrieved input
         free(input);
     }
+    */
 }
 
 
