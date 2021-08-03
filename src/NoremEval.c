@@ -1,6 +1,6 @@
 #include "Norem.h"
 
-#define STACK_SIZE 32
+#define STACK_SIZE 64
 
 #define PUSH(reg) \
     sp ++; \
@@ -36,6 +36,14 @@
 Term_t FRAME;
 Term_t HOLE;
 
+atomic_flag ATOMIC_LOCK = ATOMIC_FLAG_INIT;
+
+#define ATOMIC_LOCK() \
+    while(atomic_flag_test_and_set(&ATOMIC_LOCK)){}
+
+#define ATOMIC_UNLOCK() \
+    atomic_flag_clear(&ATOMIC_LOCK)
+
 Task_t* new_task(Term_t* with) {
     Task_t* task = malloc(sizeof(Task_t));
     Term_t* *stack = malloc(sizeof(Term_t*) * STACK_SIZE);
@@ -68,6 +76,8 @@ void show_task(Task_t* task) {
     puts("-------------------------");
 }
 
+
+
 Task_t* eval(Task_t* task, int_t timeslice) {
     //show_task(task);
 
@@ -81,6 +91,16 @@ Task_t* eval(Task_t* task, int_t timeslice) {
     assert(timeslice >= 0);
     int_t step = timeslice;
     while(step > 0) {
+
+        #if DEBUG
+			PUSH(with);
+        	task->stack_base = stack_base;
+            task->stack_ceil = stack_ceil;
+            task->sp = sp;
+			show_task(task);
+			with = *sp--;
+		#endif
+
         switch(with->tag) {
             case APP:
                 PUSH(with->t2);
@@ -106,19 +126,99 @@ Task_t* eval(Task_t* task, int_t timeslice) {
                 WITH(ARG_1);
                 POP(3);
                 NEXT(2);
+
+            #define BINOP(t1, t2, expr) \
+                RESERVE(2); \
+                if(ARG_1->tag == APP) { CALL(ARG_1); } \
+                if(ARG_2->tag == APP) { CALL(ARG_2); } \
+                assert(ARG_1->tag == t1); \
+                assert(ARG_2->tag == t2); \
+                WITH(expr); \
+                POP(2)
+            
             case ADDI:
-                RESERVE(2);
-                if(ARG_1->tag != INT) { CALL(ARG_1); }
-                if(ARG_2->tag != INT) { CALL(ARG_2); }
-                WITH(new_int(ARG_1->int_v + ARG_2->int_v));
-                POP(2);
+                BINOP(INT,INT,new_int(ARG_1->int_v + ARG_2->int_v));
                 NEXT(2);
+            case SUBI:
+                BINOP(INT,INT,new_int(ARG_1->int_v - ARG_2->int_v));
+                NEXT(2);
+            case MULI:
+                BINOP(INT,INT,new_int(ARG_1->int_v * ARG_2->int_v));
+                NEXT(2);
+            case DIVI:
+                BINOP(INT,INT,new_int(ARG_1->int_v / ARG_2->int_v));
+                NEXT(2);
+            case EQL:
+                BINOP(INT,INT,new_bool(ARG_1->int_v == ARG_2->int_v));
+                NEXT(2);
+            case GRT:
+                BINOP(INT,INT,new_bool(ARG_1->int_v > ARG_2->int_v));
+                NEXT(2);
+            case LSS:
+                BINOP(INT,INT,new_bool(ARG_1->int_v < ARG_2->int_v));
+                NEXT(2);
+            
+            #undef BINOP
+
+            #define UNIOP(t1, expr) \
+                RESERVE(1); \
+                if(ARG_1->tag != t1) { CALL(ARG_1); } \
+                WITH(expr); \
+                POP(1)
+            
+            case NEGI:
+                UNIOP(INT,new_int(ARG_1->int_v * -1));
+                NEXT(2);
+            case NOT:
+                UNIOP(BOOL,new_int(!ARG_1->bool_v));
+                NEXT(2);
+            case IF: // if p t f
+                RESERVE(3);
+                if(ARG_1->tag != BOOL) { CALL(ARG_1); }
+                WITH(ARG_1->bool_v ? ARG_2 : ARG_3);
+                POP(3);
+                NEXT(3);
             case PRINTI:
                 RESERVE(2);
                 if(ARG_1->tag != INT) { CALL(ARG_1); }
                 printf("printi: %ld\n",ARG_1->int_v);
                 WITH(ARG_2);
                 NEXT(5);
+            case NEWBOX:
+                RESERVE(1);
+                WITH(ARG_1);
+                POP(1);
+                PUSH(new_box());
+                NEXT(2);
+            case SAVE: { // SAVE box var k => k var
+                Term_t *box, *var;
+                RESERVE(3);
+                box = ARG_1;
+                var = ARG_2;
+                WITH(ARG_3);
+                POP(3);
+                ATOMIC_LOCK();
+                box->box_v = var;
+                ATOMIC_UNLOCK();
+                NEXT(3);
+            }
+            case LOAD: { // LOAD box k => k result
+                Term_t *box;
+                RESERVE(2);
+                box = ARG_1;
+                WITH(ARG_2);
+                POP(2);
+                ATOMIC_LOCK();
+                PUSH(box->box_v);
+                ATOMIC_UNLOCK();
+                NEXT(3);
+            }
+            case FORK: // FORK t k
+                RESERVE(2);
+                send_task(new_task(ARG_1));
+                WITH(ARG_2);
+                POP(2);
+                NEXT(3);
             case EXIT:
                 return NULL;
             case SYMB: {
@@ -155,7 +255,7 @@ Task_t* eval(Task_t* task, int_t timeslice) {
                     PANIC("\nCannot apply data to data!\n");
                 }
             default:
-                PANIC("Unknown tag while evaling term!\n");
+                PANIC("Unknown tag while evaling term! %d\n", with->tag);
         }
     }
 
@@ -232,6 +332,7 @@ Task_t* fetch_task() {
 }
 
 void send_task(Task_t* task){
+    //printf("new task!!!\n");
     task_pool_lock();
     if(task_head == task_tail) {
         PANIC("task overflow! MAX=%d\n",TASK_QUEUE_LEN);

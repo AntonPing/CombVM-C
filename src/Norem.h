@@ -42,12 +42,16 @@ typedef enum tag_t {
     INT, REAL, CHAR, BOOL, SYMB,
     APP, LAMB, FUNC,
     CONS, TERM, STR,
+    THUNK, BOX,
 
     I,K,S,B,C,SP,BS,CP,Y,
     ADDI,SUBI,MULI,DIVI,NEGI,
     IF,NOT,EQL,GRT,LSS,
     //ALLOC,FREE,
     //READI,WRITEI
+    NEWBOX, SAVE, LOAD,
+    //DELAY,FORCE,
+    FORK,
     PRINTI,EXIT,
     NIL,
 } tag_t;
@@ -61,6 +65,13 @@ typedef struct Term_t {
         char_t char_v;
         bool_t bool_v;
         symb_t symb_v;
+        struct Term_t* box_v;
+        /*
+        struct {
+            bool updated;
+            struct Term_t* thunk_v;
+        }
+        */
         struct { // App, Cons
             struct Term_t* t1;
             struct Term_t* t2;
@@ -121,6 +132,8 @@ Term_t* new_char(char_t value);
 Term_t* new_bool(bool_t value);
 Term_t* new_symb(symb_t value);
 Term_t* new_lamb(symb_t x, Term_t* t);
+Term_t* new_box();
+//Term_t* new_thunk(Term_t* t);
 
 // NoremParse.c
 bool is_space(char_t c);
@@ -130,6 +143,10 @@ bool definition(char_t* str, symb_t* key, Term_t** value);
 // NoremEval.c
 Task_t* eval(Task_t* task, int_t timeslice);
 void task_test();
+Task_t* new_task(Term_t* with);
+void send_task(Task_t* task);
+void task_module_init();
+void task_module_exit();
 
 // NoremSymb.c
 symb_t to_symb(char_t* str);

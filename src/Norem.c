@@ -121,6 +121,7 @@ void command_load(string_t path) {
 void command(string_t input) {
     if(strncmp(input,":quit",5) == 0) {
         puts("Goodbye!");
+        task_module_exit();
         exit(0);
     } else if(strncmp(input,":dict",5) == 0) {
         show_dict(root);
@@ -145,10 +146,8 @@ void repl() {
     puts("Type :quit to Exit\n");
 
     heap_init();
-    task_test();
+    task_module_init();
 
-    /*
-    
     while(true) {
 
         // Output our prompt and get input
@@ -159,13 +158,15 @@ void repl() {
             command(input);
         } else {
             Term_t* term;
+            Task_t* task;
             if(term_parse(input,&term)) {
                 //command_relink();
                 term = term_compile(term);
                 //term = term_link(term);
-                //term = eval(term);
-                show_term(term);
-                printf("\n");
+                task = new_task(term);
+                send_task(task);
+                //show_term(term);
+                //printf("\n");
             } else {
                 puts("Parser Error!"); 
             }
@@ -173,7 +174,8 @@ void repl() {
         // Free retrieved input
         free(input);
     }
-    */
+    task_module_exit();
+    
 }
 
 

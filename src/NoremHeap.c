@@ -129,6 +129,22 @@ Term_t* new_lamb(symb_t x, Term_t* t) {
     Term_t* term = alloc_term();
     term->tag = LAMB;
     term->x = x;
-    term->t = t;//gc_refer(t);
+    term->t = t;
     return term;
 }
+
+Term_t* new_box() {
+    Term_t* term = alloc_term();
+    term->tag = BOX;
+    return term;
+}
+
+/*
+Term_t* new_thunk(Term_t* t) {
+    Term_t* term = alloc_term();
+    term->tag = THUNK;
+    //term->thunk_v = t;
+    // TODO
+    return term;
+}
+*/
