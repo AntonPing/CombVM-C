@@ -116,6 +116,7 @@ bool is_app(Term_t* term);
 bool is_lamb(Term_t* term);
 bool is_var(Term_t* term);
 Term_t* term_compile(Term_t* term);
+Term_t* term_opt(Term_t* term);
 Term_t* term_link(Term_t* term);
 
 // NoremHeap.c

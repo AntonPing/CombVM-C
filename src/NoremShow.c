@@ -32,6 +32,11 @@ void show_term(Term_t* term) {
         case S: printf("S"); return;
         case K: printf("K"); return;
         case I: printf("I"); return;
+        case B: printf("B"); return;
+        case C: printf("C"); return;
+        case BS: printf("B*"); return;
+        case CP: printf("C'"); return;
+        case SP: printf("S'"); return;
         case ADDI: printf("+"); return;
         case SUBI: printf("-"); return;
         case MULI: printf("*"); return;

@@ -35,7 +35,7 @@ void dict_define(symb_t key, string_t text, Term_t* value) {
         dict = dict_new(key);
         dict->text = text;
         dict->raw = value;
-        dict->compiled = term_compile(value);
+        dict->compiled = term_opt(term_compile(value));
         puts("Ok.");
     } else {
         puts("Defination already exist!");
@@ -47,7 +47,7 @@ void dict_update(symb_t key, string_t text, Term_t* value) {
     if(dict != NULL) {
         dict->text = text;
         dict->raw = value;
-        dict->compiled = term_compile(value);
+        dict->compiled = term_opt(term_compile(value));
         dict->linked = NULL;
         puts("Ok.");
     } else {
@@ -162,6 +162,10 @@ void repl() {
             if(term_parse(input,&term)) {
                 //command_relink();
                 term = term_compile(term);
+                show_term(term); printf("\n");
+                term = term_opt(term);
+                show_term(term); printf("\n");
+
                 //term = term_link(term);
                 task = new_task(term);
                 if(eval(task, 2048)) {

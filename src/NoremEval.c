@@ -147,8 +147,6 @@ bool eval(Task_t* task, int_t timeslice) {
     if(step > 0) {
         assert(with != NULL);
 
-        
-
         switch(with->tag) {
             case APP:
                 PUSH(with->t2);
@@ -166,17 +164,66 @@ bool eval(Task_t* task, int_t timeslice) {
                 WITH(ARG_1);
                 CONSUME(2);
                 NEXT(1);
-            case S: do {
+            case S: {
                 Term_t* temp;
                 RESERVE(3);
-                // S x y z = (x z) (y z)
+                // S f g x = (f x (g x))
                 temp = ARG_3;
                 ARG_3 = new_app(ARG_2,ARG_3),
                 ARG_2 = temp;
                 WITH(ARG_1);
                 CONSUME(1);
                 NEXT(2);
-            } while(0);
+            }
+            case B: {
+                RESERVE(3);
+                // B f g x = (f (g x))
+                ARG_3 = new_app(ARG_2,ARG_3),
+                WITH(ARG_1);
+                CONSUME(2);
+                NEXT(2);
+            }
+            case C: {
+                Term_t* temp;
+                RESERVE(3);
+                // C f g x = (f x g)
+                temp = ARG_3;
+                ARG_3 = ARG_2,
+                ARG_2 = temp;
+                WITH(ARG_1);
+                CONSUME(1);
+                NEXT(2);
+            }
+            case BS: {
+                RESERVE(4);
+                // B* c f g x = (c (f (g x)))
+                ARG_4 = new_app(ARG_2,new_app(ARG_3,ARG_4));
+                WITH(ARG_1);
+                CONSUME(3);
+                NEXT(2);
+            }
+            case CP: {
+                Term_t* temp;
+                RESERVE(4);
+                // C' c f g x = (c (f x) g)
+                temp = ARG_4;
+                ARG_4 = ARG_3;
+                ARG_3 = new_app(ARG_2,temp);
+                WITH(ARG_1);
+                CONSUME(2);
+                NEXT(2);
+            }
+            case SP: {
+                Term_t* temp;
+                RESERVE(4);
+                // S' c f g x = (c (f x) (g x))
+                temp = ARG_4;
+                ARG_4 = new_app(ARG_3,ARG_4);
+                ARG_3 = new_app(ARG_2,temp);
+                WITH(ARG_1);
+                CONSUME(2);
+                NEXT(2);
+            }
 
             #define BINOP(t1, t2, expr) \
                 RESERVE(2); \

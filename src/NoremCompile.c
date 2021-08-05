@@ -1,5 +1,14 @@
 #include "Norem.h"
 
+#define APP2(t1,t2) \
+    new_app(t1,t2)
+
+#define APP3(t1,t2,t3) \
+    new_app(new_app(t1,t2),t3)
+
+#define APP4(t1,t2,t3,t4) \
+    new_app(new_app(new_app(t1,t2),t3),t4)
+
 bool is_app(Term_t* term) {
     return term->tag == APP;
 }
@@ -64,6 +73,67 @@ Term_t* term_compile(Term_t* term) {
         return term;
     }
 }
+
+Term_t* term_opt(Term_t* term) {
+    // (S arg1 arg2)
+    Term_t *arg1, *arg2, *p, *q, *r;
+    if(term->tag == APP && term->t1->tag == APP
+        && term->t1->t1->tag == S) {
+        arg2 = term->t2;
+        arg1 = term->t1->t2;
+        // S (K p) I = p
+        // S (K p) (K q) = K (p q)
+        // S (K p) (B q r) = B* p q r
+        // S (K p) q = B p q
+        if(arg1->tag == APP && arg1->t1->tag == K) {
+            p = arg1->t2;
+            if(arg2->tag == I) {
+            return p;
+            } else if(arg2->tag == APP && arg2->t1->tag == K) {
+                q = arg2->t2;
+                return term_opt(APP2(&sing[K],APP2(p,q)));
+            } else if(arg2->tag == APP && arg2->t1->tag == APP
+                && arg2->t1->t1->tag == B) {
+                r = arg2->t2;
+                q = arg2->t1->t2;
+                return term_opt(APP4(&sing[BS],p,q,r));
+            } else {
+                q = arg2;
+                return term_opt(APP3(&sing[B],p,q));
+            }
+        // S (B p q) (K r) = C' p q r
+        // S (B p q) r = S' p q r
+        } else if(arg1->tag == APP && arg1->t1->tag == APP
+                && arg1->t1->t1->tag == B) {
+            q = arg1->t2;
+            p = arg1->t1->t2;
+            if(arg2->tag == APP && arg2->t1->tag == K) {
+                r = arg2->t2;
+                return term_opt(APP4(&sing[CP],p,q,r));
+            } else {
+                r = arg2;
+                return term_opt(APP4(&sing[SP],p,q,r));
+            }
+        // S p (K q) = C p q
+        } else {
+            if(arg2->tag == APP && arg2->t1->tag == K) {
+                q = arg2->t2;
+                p = arg1;
+                return term_opt(APP3(&sing[C],p,q));
+            } else {
+                // S p q ......
+                q = arg2;
+                p = arg1;
+                return APP3(&sing[S],term_opt(p),term_opt(q));
+            }
+        }
+    } else if(term->tag == APP) {
+        return APP2(term_opt(term->t1),term_opt(term->t2));
+    } else {
+        return term;
+    }
+}
+
 
 typedef struct Symb_List_t {
     symb_t this;
