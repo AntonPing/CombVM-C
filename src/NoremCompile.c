@@ -128,7 +128,13 @@ Term_t* term_opt(Term_t* term) {
             }
         }
     } else if(term->tag == APP) {
-        return APP2(term_opt(term->t1),term_opt(term->t2));
+        Term_t* x1 = term_opt(term->t1);
+        Term_t* x2 = term_opt(term->t2);
+        if(x1 == term->t1 && x2 == term->t2) {
+            return term;
+        } else {
+            return term_opt(APP2(x1,x2));
+        }
     } else {
         return term;
     }
