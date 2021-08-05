@@ -34,6 +34,7 @@ typedef char* string_t;
 #define PANIC(...) do{ \
     fprintf(stderr, "[PANIC]%s %s(Line %d): ",__FILE__,__FUNCTION__,__LINE__); \
     fprintf(stderr, __VA_ARGS__); \
+    task_module_exit(); \
     exit(1); \
 } while(0)
 
@@ -88,6 +89,7 @@ typedef struct Task_t {
     Term_t* *stack_base;
     Term_t* *stack_ceil;
     Term_t* *sp;
+    Term_t* ret;
 } Task_t;
 
 
@@ -141,8 +143,7 @@ bool term_parse(char_t* str, Term_t** ret);
 bool definition(char_t* str, symb_t* key, Term_t** value);
 
 // NoremEval.c
-Task_t* eval(Task_t* task, int_t timeslice);
-void task_test();
+bool eval(Task_t* task, int_t timeslice);
 Task_t* new_task(Term_t* with);
 void send_task(Task_t* task);
 void task_module_init();

@@ -1,18 +1,46 @@
 #include "Norem.h"
+// FLAGS
+#define DEBUG_TASK
 
+
+#ifdef DEBUG_TASK
+	#define SHOW_TASK() do { \
+        PUSH(with); \
+        task->stack_base = stack_base; \
+        task->stack_ceil = stack_ceil; \
+        task->sp = sp; \
+        task->ret = ret; \
+        show_task(task); \
+        with = POP(); \
+    } while(0)
+#else
+    #define SHOW_TASK()
+#endif
+
+
+// MACROS
 #define STACK_SIZE 64
-
-#define PUSH(reg) \
-    sp ++; \
-    assert(sp <= stack_ceil); \
-    *sp = reg
 
 #define ARG_1 sp[0]
 #define ARG_2 sp[-1]
 #define ARG_3 sp[-2]
 #define ARG_4 sp[-3]
 
-#define POP(n) \
+#define PUSH(reg) \
+    assert(sp <= stack_ceil); \
+    sp ++; \
+    *sp = reg
+
+#define POP() \
+    *sp--
+
+#define RESERVE(n) do { \
+    for(int i=0; i<n; i++) { \
+        if(sp[-i] == &FRAME) { RET(); } \
+    } \
+} while(0)
+
+#define CONSUME(n) \
     sp -= n
 
 #define WITH(x) \
@@ -20,48 +48,73 @@
 
 #define NEXT(clk) \
     step -= clk; \
-    continue
+    goto eval_loop
 
-#define CALL(x) \
-    x = &HOLE; \
-    PUSH(with); \
-    PUSH(&FRAME); \
+#define CALL(x) do { \
+    Term_t* caller = with; \
     WITH(x); \
-    NEXT(2)
+    x = &HOLE; \
+    PUSH(caller); \
+    PUSH(&FRAME); \
+    NEXT(2); \
+} while(0)
 
-#define RESERVE(n) \
-    for(int i=0; i<n; i++) \
-        assert(sp[-i] != &FRAME)
+#define RET() do { \
+    assert(ret == NULL); \
+    ret = with; \
+    with = POP(); \
+    while(with != &FRAME) { \
+        ret = new_app(ret, with); \
+        with = POP(); \
+    } \
+    with = POP(); \
+    NEXT(3); \
+} while(0)
+
+#define EVAL(x,type) do { \
+    if(x == &HOLE) { \
+        assert(ret != NULL); \
+        if(ret->tag == type) { \
+            x = ret; \
+            ret = NULL; \
+        } else { \
+            PANIC("Return with the wrong type!\n"); \
+        } \
+    } else { \
+        if(x->tag != type) { \
+            CALL(x); \
+        } \
+    } \
+} while(0)
 
 Term_t FRAME;
 Term_t HOLE;
 
-atomic_flag ATOMIC_LOCK = ATOMIC_FLAG_INIT;
+atomic_flag atomic_lock = ATOMIC_FLAG_INIT;
 
 #define ATOMIC_LOCK() \
-    while(atomic_flag_test_and_set(&ATOMIC_LOCK)){}
+    while(atomic_flag_test_and_set(&atomic_lock)){}
 
 #define ATOMIC_UNLOCK() \
-    atomic_flag_clear(&ATOMIC_LOCK)
+    atomic_flag_clear(&atomic_lock)
 
 Task_t* new_task(Term_t* with) {
     Task_t* task = malloc(sizeof(Task_t));
     Term_t* *stack = malloc(sizeof(Term_t*) * STACK_SIZE);
-    stack[0] = &HOLE;
-    stack[1] = &sing[EXIT];
-    stack[2] = &FRAME;
-    stack[3] = with;
+    stack[0] = &sing[EXIT];
+    stack[1] = &FRAME;
+    stack[2] = with;
     task->stack_base = stack;
     task->stack_ceil = &stack[STACK_SIZE - 1];
-    task->sp = &stack[3];
+    task->sp = &stack[2];
+    task->ret = NULL;
     return task;
 }
 
 void show_task(Task_t* task) {
     Term_t* *stack_base = task->stack_base;
-    //Term_t* *stack_ceil = task->stack_ceil;
     Term_t* *sp = task->sp;
-    
+    printf("# ret = "); show_term(task->ret); printf("\n");
     puts("-------------------------");
     for(Term_t* *ptr = sp; ptr >= stack_base; ptr --) {
         assert(*ptr != NULL);
@@ -76,30 +129,25 @@ void show_task(Task_t* task) {
     puts("-------------------------");
 }
 
-
-
-Task_t* eval(Task_t* task, int_t timeslice) {
+bool eval(Task_t* task, int_t timeslice) {
     //show_task(task);
 
     // load the task
     Term_t* *stack_base = task->stack_base;
     Term_t* *stack_ceil = task->stack_ceil;
     Term_t* *sp = task->sp;
-    Term_t* with = *sp--; // pop top as with
-    
+    Term_t* ret = task->ret; // ret register
+    Term_t* with = *sp--; // with register
+
     // run timeslice
     assert(timeslice >= 0);
     int_t step = timeslice;
-    while(step > 0) {
 
-        #if DEBUG
-			PUSH(with);
-        	task->stack_base = stack_base;
-            task->stack_ceil = stack_ceil;
-            task->sp = sp;
-			show_task(task);
-			with = *sp--;
-		#endif
+    eval_loop: // while step > 0 run the task
+    if(step > 0) {
+        assert(with != NULL);
+
+        
 
         switch(with->tag) {
             case APP:
@@ -110,31 +158,33 @@ Task_t* eval(Task_t* task, int_t timeslice) {
                 RESERVE(1);
                 // I x = x
                 WITH(ARG_1);
-                POP(1);
+                CONSUME(1);
                 NEXT(1);
             case K:
                 RESERVE(2);
                 // K x y = x
                 WITH(ARG_1);
-                POP(2);
+                CONSUME(2);
                 NEXT(1);
-            case S:
+            case S: do {
+                Term_t* temp;
                 RESERVE(3);
                 // S x y z = (x z) (y z)
-                PUSH(new_app(ARG_2,ARG_3));
-                PUSH(ARG_3);
+                temp = ARG_3;
+                ARG_3 = new_app(ARG_2,ARG_3),
+                ARG_2 = temp;
                 WITH(ARG_1);
-                POP(3);
+                CONSUME(1);
                 NEXT(2);
+            } while(0);
 
             #define BINOP(t1, t2, expr) \
                 RESERVE(2); \
-                if(ARG_1->tag == APP) { CALL(ARG_1); } \
-                if(ARG_2->tag == APP) { CALL(ARG_2); } \
-                assert(ARG_1->tag == t1); \
-                assert(ARG_2->tag == t2); \
+                EVAL(ARG_1, t1); \
+                EVAL(ARG_2, t2); \
+                SHOW_TASK(); \
                 WITH(expr); \
-                POP(2)
+                CONSUME(2)
             
             case ADDI:
                 BINOP(INT,INT,new_int(ARG_1->int_v + ARG_2->int_v));
@@ -162,9 +212,9 @@ Task_t* eval(Task_t* task, int_t timeslice) {
 
             #define UNIOP(t1, expr) \
                 RESERVE(1); \
-                if(ARG_1->tag != t1) { CALL(ARG_1); } \
+                EVAL(ARG_1, t1); \
                 WITH(expr); \
-                POP(1)
+                CONSUME(1)
             
             case NEGI:
                 UNIOP(INT,new_int(ARG_1->int_v * -1));
@@ -172,22 +222,25 @@ Task_t* eval(Task_t* task, int_t timeslice) {
             case NOT:
                 UNIOP(BOOL,new_int(!ARG_1->bool_v));
                 NEXT(2);
-            case IF: // if p t f
+            
+            case IF:
                 RESERVE(3);
-                if(ARG_1->tag != BOOL) { CALL(ARG_1); }
+                EVAL(ARG_1, BOOL);
                 WITH(ARG_1->bool_v ? ARG_2 : ARG_3);
-                POP(3);
+                CONSUME(3);
                 NEXT(3);
+
             case PRINTI:
                 RESERVE(2);
-                if(ARG_1->tag != INT) { CALL(ARG_1); }
+                EVAL(ARG_1, INT);
                 printf("printi: %ld\n",ARG_1->int_v);
                 WITH(ARG_2);
                 NEXT(5);
+            /*
             case NEWBOX:
                 RESERVE(1);
                 WITH(ARG_1);
-                POP(1);
+                CONSUME(1);
                 PUSH(new_box());
                 NEXT(2);
             case SAVE: { // SAVE box var k => k var
@@ -196,7 +249,7 @@ Task_t* eval(Task_t* task, int_t timeslice) {
                 box = ARG_1;
                 var = ARG_2;
                 WITH(ARG_3);
-                POP(3);
+                CONSUME(3);
                 ATOMIC_LOCK();
                 box->box_v = var;
                 ATOMIC_UNLOCK();
@@ -207,20 +260,25 @@ Task_t* eval(Task_t* task, int_t timeslice) {
                 RESERVE(2);
                 box = ARG_1;
                 WITH(ARG_2);
-                POP(2);
+                CONSUME(2);
                 ATOMIC_LOCK();
                 PUSH(box->box_v);
                 ATOMIC_UNLOCK();
                 NEXT(3);
             }
+            */
             case FORK: // FORK t k
                 RESERVE(2);
                 send_task(new_task(ARG_1));
                 WITH(ARG_2);
-                POP(2);
+                CONSUME(2);
                 NEXT(3);
             case EXIT:
-                return NULL;
+                task->stack_base = stack_base;
+                task->stack_ceil = stack_ceil;
+                task->sp = sp;
+                task->ret = ret;
+                return false;
             case SYMB: {
                 Dict_t* dict = dict_get(with->symb_v);
                 if(dict != NULL) {
@@ -238,15 +296,7 @@ Task_t* eval(Task_t* task, int_t timeslice) {
             case BOOL:
                 // BASIC DATA
                 if(sp[0] == &FRAME) {
-                    // cover the hole
-                    for(int i=0; ; i++) {
-                        if(sp[-i] == &HOLE) {
-                            sp[-i] = with;
-                        }
-                    }
-                    WITH(sp[-1]);
-                    POP(2);
-                    NEXT(2);
+                    RET();
                 } else {
                     printf("DATA1: ");
                     show_term(with);
@@ -263,7 +313,8 @@ Task_t* eval(Task_t* task, int_t timeslice) {
     task->stack_base = stack_base;
     task->stack_ceil = stack_ceil;
     task->sp = sp;
-    return task;
+    task->ret = ret;
+    return true;
 }
 
 /////////////////////////
@@ -332,7 +383,6 @@ Task_t* fetch_task() {
 }
 
 void send_task(Task_t* task){
-    //printf("new task!!!\n");
     task_pool_lock();
     if(task_head == task_tail) {
         PANIC("task overflow! MAX=%d\n",TASK_QUEUE_LEN);
@@ -353,21 +403,17 @@ void* thread_loop(){
         if(task == NULL) {
             sleep(1); // sleep and wait for new task
         } else {
-            task = eval(task, 256); // run the timeslice 
-            if(task != NULL) {
-                send_task(task); // send back the task
+            if(eval(task, 256)) { // run the timeslice
+                // send back the task if it was interrupted
+                send_task(task); 
+            } else {
+                // delete the task if it was finished
+                printf("task completed! ret = ");
+                show_term(task->ret);
+                printf("\n");
+                free(task);
+                //LOG("task completed!");
             }
         }
     }
-}
-
-void task_test() {
-    task_module_init();
-    Term_t* test = new_app(new_app(&sing[PRINTI],new_int(42)),&sing[EXIT]);
-    test = term_compile(test);
-    while(true) {
-        send_task(new_task(test));
-        sleep(1);
-    }
-    task_module_exit();
 }

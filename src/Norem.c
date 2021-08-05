@@ -164,7 +164,14 @@ void repl() {
                 term = term_compile(term);
                 //term = term_link(term);
                 task = new_task(term);
-                send_task(task);
+                if(eval(task, 2048)) {
+                    send_task(task);
+                    puts("This task is too heavy, dumped to the thread queue.");
+                } else {
+                    show_term(task->ret);
+                    printf("\n");
+                    free(task);
+                }
                 //show_term(term);
                 //printf("\n");
             } else {
