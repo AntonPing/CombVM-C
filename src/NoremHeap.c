@@ -5,14 +5,17 @@
 Term_t sing[256];
 
 #define POOL_SIZE 2048
-static Term_t heap_base[POOL_SIZE];
-static Term_t* heap_ceil;
+static Term_t heap_base_a[POOL_SIZE];
+static Term_t* heap_ceil_a = &heap_base_a[POOL_SIZE - 1];
+static Term_t heap_base_b[POOL_SIZE];
+static Term_t* heap_ceil_b = &heap_base_b[POOL_SIZE - 1];
+static bool from_a_to_b = true;
+
 static Term_t* heap_ptr;
 
 void heap_init() {
     LOG("start, init heap\n");
-    heap_ceil = &heap_base[POOL_SIZE - 1];
-    heap_ptr = &heap_base[0];
+    heap_ptr = &heap_base_a[0];
     LOG("init singleton\n");
     for(int i=0; i<256; i++) {
         sing[i].tag = i;
@@ -33,14 +36,99 @@ void free_term(Term_t* term) {
 }
 */
 
-Term_t* alloc_term() {
-    assert(heap_ptr >= heap_base && heap_ptr <= heap_ceil);
-    if(heap_ptr == heap_ceil) {
-        PANIC("heap all used!\n");
-    } else {
-        return heap_ptr++;
+Term_t* copy_term(Term_t* term) {
+    switch(term->tag) {
+        case S:
+        case K:
+        case I:
+        case B:
+        case C:
+        case BS:
+        case CP:
+        case SP:
+        case Y: 
+        case E: 
+        case ADDI:
+        case SUBI:
+        case MULI:
+        case DIVI:
+        case NEGI:
+        case IF:
+        case NOT:
+        case EQL:
+        case GRT:
+        case LSS:
+        case PRINTI:
+        case EXIT:
+        case NIL:
+            return term; 
+        case INT:
+            return new_int(term->int_v);
+        case REAL:
+            return new_real(term->real_v);
+        case CHAR:
+            return new_char(term->char_v);
+        case BOOL:
+            return new_bool(term->bool_v);
+        case SYMB:
+            return new_symb(term->symb_v);
+        case LAMB: 
+            return new_lamb(term->x,
+                copy_term(term->t));
+        case APP: 
+            return new_app(
+                copy_term(term->t1),
+                copy_term(term->t2));
+        default:
+            PANIC("unknown tag for copy-collect!\n");
     }
 }
+
+void run_gc() {
+    if(from_a_to_b) {
+        from_a_to_b = false;
+        heap_ptr = heap_base_b;
+    } else {
+        from_a_to_b = true;
+        heap_ptr = heap_base_a;
+    }
+
+    Task_t* *task_ptr = task_head + 1;
+    while(task_ptr++ != task_tail) {
+        if(task_ptr == task_queue_ceil + 1) {
+            task_ptr = task_queue_base;
+        }
+        Task_t* task = *task_ptr;
+        Term_t* *base = task->stack_base;
+        Term_t* *sp = task->sp;
+        task->ret = copy_term(task->ret);
+        for(Term_t** ptr = base; ptr <= sp; ptr ++) {
+            *ptr = copy_term(*ptr);
+        }
+    }
+}
+
+
+Term_t* alloc_term() {
+    if(from_a_to_b) {
+        assert(heap_ptr >= heap_base_a && heap_ptr <= heap_ceil_a);
+        if(heap_ptr == heap_ceil_a) {
+            run_gc();
+            return alloc_term();
+        } else {
+            return heap_ptr++;
+        }
+    } else {
+        assert(heap_ptr >= heap_base_b && heap_ptr <= heap_ceil_b);
+        if(heap_ptr == heap_ceil_b) {
+            run_gc();
+            return alloc_term();
+        } else {
+            return heap_ptr++;
+        }
+    }
+}
+
 
 /*
 void gc_free(Term_t* term) {

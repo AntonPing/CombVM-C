@@ -145,6 +145,10 @@ bool term_parse(char_t* str, Term_t** ret);
 bool definition(char_t* str, symb_t* key, Term_t** value);
 
 // NoremEval.c
+Task_t* *task_queue_base;
+Task_t* *task_queue_ceil;
+Task_t* *task_head;
+Task_t* *task_tail;
 bool eval(Task_t* task, int_t timeslice);
 Task_t* new_task(Term_t* with);
 void send_task(Task_t* task);

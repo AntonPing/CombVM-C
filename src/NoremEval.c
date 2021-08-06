@@ -431,7 +431,7 @@ bool eval(Task_t* task, int_t timeslice) {
 //    MULTITASKING     //
 /////////////////////////
 
-#define NUM_THREADS 8
+#define NUM_THREADS 0
 #define TASK_QUEUE_LEN 256
 pthread_t thread_pool[NUM_THREADS];
 Task_t* *task_queue_base;
