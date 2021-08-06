@@ -45,7 +45,7 @@ typedef enum tag_t {
     CONS, TERM, STR,
     THUNK, BOX,
 
-    I,K,S,B,C,SP,BS,CP,Y,
+    I,K,S,B,C,SP,BS,CP,Y,E,
     ADDI,SUBI,MULI,DIVI,NEGI,
     IF,NOT,EQL,GRT,LSS,
     //ALLOC,FREE,
@@ -109,7 +109,8 @@ Dict_t* dict_get(symb_t key);
 // NoremShow.c
 void show_term(Term_t* term);
 void show_lamb(Term_t* term);
-void show_dict(Dict_t* dict);
+void show_dict_raw(Dict_t* dict);
+void show_dict_compiled(Dict_t* dict);
 
 // NoremCompile.c
 bool is_app(Term_t* term);

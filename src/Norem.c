@@ -36,6 +36,7 @@ void dict_define(symb_t key, string_t text, Term_t* value) {
         dict->text = text;
         dict->raw = value;
         dict->compiled = term_opt(term_compile(value));
+        dict->linked = NULL;
         puts("Ok.");
     } else {
         puts("Defination already exist!");
@@ -123,8 +124,10 @@ void command(string_t input) {
         puts("Goodbye!");
         task_module_exit();
         exit(0);
+    } else if(strncmp(input,":dict -c",8) == 0) {
+        show_dict_compiled(root);
     } else if(strncmp(input,":dict",5) == 0) {
-        show_dict(root);
+        show_dict_raw(root);
     } else if(strncmp(input,":load ",6) == 0) {
         command_load(&input[6]);
     } else if(strncmp(input,":define ",8) == 0) {
@@ -148,6 +151,10 @@ void repl() {
     heap_init();
     task_module_init();
 
+    // THIS IS FOR TESTING SAKE
+    command(":load test.nrm");
+    // YOU MAY COMMENT IT
+
     while(true) {
 
         // Output our prompt and get input
@@ -162,15 +169,28 @@ void repl() {
             if(term_parse(input,&term)) {
                 //command_relink();
                 term = term_compile(term);
-                show_term(term); printf("\n");
                 term = term_opt(term);
-                show_term(term); printf("\n");
-
                 //term = term_link(term);
                 task = new_task(term);
+
+                eval_start:
                 if(eval(task, 2048)) {
-                    send_task(task);
-                    puts("This task is too heavy, dumped to the thread queue.");
+                    char yes_or_no;
+                    puts("This task seems doesn't terminate, do you want to "
+                        "dumped it into the thread queue? (y/n)");
+                    while(true) {
+                        scanf("%c", &yes_or_no);
+                        if(yes_or_no == 'y') {
+                            send_task(task);
+                            puts("Ok.");
+                            break;
+                        } else if(yes_or_no == 'n') {
+                            goto eval_start;
+                        } else {
+                            puts("Please type 'y' or 'n' for yes or no!");
+                            continue;
+                        }
+                    }
                 } else {
                     show_term(task->ret);
                     printf("\n");

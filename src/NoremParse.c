@@ -363,7 +363,7 @@ Parser_t parse_operator(Parser_t par) {
     OPERATOR("=",EQL);
     OPERATOR(">",GRT);
     OPERATOR("<",LSS);
-    OPERATOR("print",PRINTI);
+    OPERATOR("printi",PRINTI);
     OPERATOR("exit",EXIT);
     OPERATOR("nil",NIL);
 
@@ -371,6 +371,45 @@ Parser_t parse_operator(Parser_t par) {
     // no match, default:
     free(res);
     PARSER_FAIL(par);
+}
+
+Parser_t parse_lazy_lambda(Parser_t par) {
+    PARSER_START(par);
+    Parser_t p1;
+
+    p1 = parse_char(par,'\\');
+    p1 = parse_symb(p1);
+    symb_t x1 = p1.symb_v;
+    p1 = parse_char(p1,'.');
+    p1 = parse_any_space(p1);
+    p1 = parse_app_list(p1);
+    Term_t* t1 = p1.term_v;
+    if(p1.success) {
+        p1.term_v = new_lamb(x1,t1);
+        PARSER_SUCCESS(p1);
+    } else {
+        PARSER_FAIL(par);
+    }
+}
+
+Parser_t parse_strict_lambda(Parser_t par) {
+    PARSER_START(par);
+    Parser_t p1;
+    
+    p1 = parse_char(par,'\\');
+    p1 = parse_symb(p1);
+    symb_t x1 = p1.symb_v;
+    p1 = parse_some_space(p1);
+    p1 = parse_string(p1,"->");
+    p1 = parse_any_space(p1);
+    p1 = parse_app_list(p1);
+    Term_t* t1 = p1.term_v;
+    if(p1.success) {
+        p1.term_v = new_app(&sing[E],new_lamb(x1,t1));
+        PARSER_SUCCESS(p1);
+    } else {
+        PARSER_FAIL(par);
+    }
 }
 
 Parser_t parse_term(Parser_t par) {
@@ -394,6 +433,16 @@ Parser_t parse_term(Parser_t par) {
         PARSER_SUCCESS(p1);
     }
 
+    p1 = parse_lazy_lambda(par);
+    if(p1.success) {
+        PARSER_SUCCESS(p1);
+    }
+
+    p1 = parse_strict_lambda(par);
+    if(p1.success) {
+        PARSER_SUCCESS(p1);
+    }
+
     p1 = parse_char(par,'(');
     p1 = parse_any_space(p1);
     p1 = parse_app_list(p1);
@@ -405,17 +454,7 @@ Parser_t parse_term(Parser_t par) {
         PARSER_SUCCESS(p1);
     }
 
-    p1 = parse_char(par,'\\');
-    p1 = parse_symb(p1);
-    symb_t x = p1.symb_v;
-    p1 = parse_char(p1,'.');
-    p1 = parse_any_space(p1);
-    p1 = parse_app_list(p1);
-    Term_t* t = p1.term_v;
-    if(p1.success) {
-        p1.term_v = new_lamb(x,t);
-        PARSER_SUCCESS(p1);
-    }
+    
 
     // no match
     PARSER_FAIL(par);

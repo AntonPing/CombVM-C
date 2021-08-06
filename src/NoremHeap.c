@@ -4,7 +4,7 @@
 
 Term_t sing[256];
 
-#define POOL_SIZE 65536
+#define POOL_SIZE 2048
 static Term_t heap_base[POOL_SIZE];
 static Term_t* heap_ceil;
 static Term_t* heap_ptr;

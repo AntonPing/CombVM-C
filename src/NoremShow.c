@@ -37,6 +37,8 @@ void show_term(Term_t* term) {
         case BS: printf("B*"); return;
         case CP: printf("C'"); return;
         case SP: printf("S'"); return;
+        case Y: printf("Y"); return;
+        case E: printf("E"); return;
         case ADDI: printf("+"); return;
         case SUBI: printf("-"); return;
         case MULI: printf("*"); return;
@@ -47,7 +49,7 @@ void show_term(Term_t* term) {
         case EQL: printf("="); return;
         case GRT: printf(">"); return;
         case LSS: printf("<"); return;
-        case PRINTI: printf("print"); return;
+        case PRINTI: printf("printi"); return;
         case EXIT: printf("EXIT"); return;
         case NIL: printf("nil"); return;
         case INT:
@@ -85,7 +87,7 @@ void show_app_list(Term_t* term) {
 
 
 
-void show_dict(Dict_t* dict) {
+void show_dict_raw(Dict_t* dict) {
     puts("-------------------------");
     puts("| DICTIONARY DEFINITION |");
     puts("-------------------------");
@@ -93,6 +95,20 @@ void show_dict(Dict_t* dict) {
     while(ptr != NULL) {
         printf("%s = ",ptr->name);
         show_term(ptr->raw);
+        printf("\n");
+        ptr = ptr->next;
+    }
+    puts("-------------------------");
+}
+
+void show_dict_compiled(Dict_t* dict) {
+    puts("-------------------------");
+    puts("| DICTIONARY DEFINITION |");
+    puts("-------------------------");
+    Dict_t* ptr = dict;
+    while(ptr != NULL) {
+        printf("%s = ",ptr->name);
+        show_term(ptr->compiled);
         printf("\n");
         ptr = ptr->next;
     }

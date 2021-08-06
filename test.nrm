@@ -9,3 +9,8 @@
         + (fib ; - n 1)
           (fib ; - n 2)
 )
+
+:define int-flow (\n ->
+    printi n;
+    int-flow (+ n 1)
+)

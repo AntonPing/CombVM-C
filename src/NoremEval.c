@@ -2,6 +2,49 @@
 // FLAGS
 #define DEBUG_TASK
 
+// TASK
+#define STACK_SIZE 32
+Term_t FRAME;
+Term_t HOLE;
+
+atomic_flag atomic_lock = ATOMIC_FLAG_INIT;
+
+#define ATOMIC_LOCK() \
+    while(atomic_flag_test_and_set(&atomic_lock)){}
+
+#define ATOMIC_UNLOCK() \
+    atomic_flag_clear(&atomic_lock)
+
+Task_t* new_task(Term_t* with) {
+    Task_t* task = malloc(sizeof(Task_t));
+    Term_t* *stack = malloc(sizeof(Term_t*) * STACK_SIZE);
+    stack[0] = &sing[EXIT];
+    stack[1] = &FRAME;
+    stack[2] = with;
+    task->stack_base = stack;
+    task->stack_ceil = &stack[STACK_SIZE - 1];
+    task->sp = &stack[2];
+    task->ret = NULL;
+    return task;
+}
+
+void show_task(Task_t* task) {
+    Term_t* *stack_base = task->stack_base;
+    Term_t* *sp = task->sp;
+    printf("# ret = "); show_term(task->ret); printf("\n");
+    puts("-------------------------");
+    for(Term_t* *ptr = sp; ptr >= stack_base; ptr --) {
+        assert(*ptr != NULL);
+        if(*ptr == &FRAME) {
+            puts("-------------------------");
+        } else if(*ptr == &HOLE) {
+            puts("| &HOLE");
+        } else {
+            printf("| "); show_term(*ptr); printf("\n");
+        }
+    }
+    puts("-------------------------");
+}
 
 #ifdef DEBUG_TASK
 	#define SHOW_TASK() do { \
@@ -18,8 +61,17 @@
 #endif
 
 
-// MACROS
-#define STACK_SIZE 64
+void stack_extend(Term_t*** base, Term_t*** ceil, Term_t*** sp) {
+    size_t new_size = (*ceil - *base + 1) * 2;
+    Term_t* *new_base = realloc(*base, new_size * sizeof(Term_t*));
+    if(new_base == NULL) {
+        PANIC("realloc stack failed! size=%ld\n", new_size);
+    }
+
+    *sp = *sp + (new_base - *base);
+    *base = new_base;
+    *ceil = new_base + new_size - 1;
+}
 
 #define ARG_1 sp[0]
 #define ARG_2 sp[-1]
@@ -27,7 +79,9 @@
 #define ARG_4 sp[-3]
 
 #define PUSH(reg) \
-    assert(sp <= stack_ceil); \
+    if(sp >= stack_ceil) { \
+        stack_extend(&stack_base,&stack_ceil,&sp); \
+    } \
     sp ++; \
     *sp = reg
 
@@ -71,66 +125,24 @@
     NEXT(3); \
 } while(0)
 
-#define EVAL(x,type) do { \
+#define EVAL(x,check) do { \
     if(x == &HOLE) { \
-        assert(ret != NULL); \
-        if(ret->tag == type) { \
-            x = ret; \
+        x = ret; \
+        assert(x != NULL); \
+        if(check) { \
             ret = NULL; \
         } else { \
             PANIC("Return with the wrong type!\n"); \
         } \
     } else { \
-        if(x->tag != type) { \
+        if(!(check)) { \
             CALL(x); \
         } \
     } \
 } while(0)
 
-Term_t FRAME;
-Term_t HOLE;
-
-atomic_flag atomic_lock = ATOMIC_FLAG_INIT;
-
-#define ATOMIC_LOCK() \
-    while(atomic_flag_test_and_set(&atomic_lock)){}
-
-#define ATOMIC_UNLOCK() \
-    atomic_flag_clear(&atomic_lock)
-
-Task_t* new_task(Term_t* with) {
-    Task_t* task = malloc(sizeof(Task_t));
-    Term_t* *stack = malloc(sizeof(Term_t*) * STACK_SIZE);
-    stack[0] = &sing[EXIT];
-    stack[1] = &FRAME;
-    stack[2] = with;
-    task->stack_base = stack;
-    task->stack_ceil = &stack[STACK_SIZE - 1];
-    task->sp = &stack[2];
-    task->ret = NULL;
-    return task;
-}
-
-void show_task(Task_t* task) {
-    Term_t* *stack_base = task->stack_base;
-    Term_t* *sp = task->sp;
-    printf("# ret = "); show_term(task->ret); printf("\n");
-    puts("-------------------------");
-    for(Term_t* *ptr = sp; ptr >= stack_base; ptr --) {
-        assert(*ptr != NULL);
-        if(*ptr == &FRAME) {
-            puts("-------------------------");
-        } else if(*ptr == &HOLE) {
-            puts("| &HOLE");
-        } else {
-            printf("| "); show_term(*ptr); printf("\n");
-        }
-    }
-    puts("-------------------------");
-}
-
 bool eval(Task_t* task, int_t timeslice) {
-    //show_task(task);
+    show_task(task);
 
     // load the task
     Term_t* *stack_base = task->stack_base;
@@ -148,140 +160,191 @@ bool eval(Task_t* task, int_t timeslice) {
         assert(with != NULL);
 
         switch(with->tag) {
+            Term_t* temp;
             case APP:
                 PUSH(with->t2);
                 WITH(with->t1);
                 NEXT(1);
-            case I: 
-                RESERVE(1);
+            case I:
                 // I x = x
+                RESERVE(1);
                 WITH(ARG_1);
                 CONSUME(1);
                 NEXT(1);
             case K:
-                RESERVE(2);
                 // K x y = x
+                RESERVE(2);
                 WITH(ARG_1);
                 CONSUME(2);
                 NEXT(1);
-            case S: {
-                Term_t* temp;
-                RESERVE(3);
+            case S:
                 // S f g x = (f x (g x))
+                RESERVE(3);
                 temp = ARG_3;
                 ARG_3 = new_app(ARG_2,ARG_3),
                 ARG_2 = temp;
                 WITH(ARG_1);
                 CONSUME(1);
                 NEXT(2);
-            }
-            case B: {
-                RESERVE(3);
+            case B:
                 // B f g x = (f (g x))
+                RESERVE(3);
                 ARG_3 = new_app(ARG_2,ARG_3),
                 WITH(ARG_1);
                 CONSUME(2);
                 NEXT(2);
-            }
-            case C: {
-                Term_t* temp;
-                RESERVE(3);
+            case C:
                 // C f g x = (f x g)
+                RESERVE(3);
                 temp = ARG_3;
                 ARG_3 = ARG_2,
                 ARG_2 = temp;
                 WITH(ARG_1);
                 CONSUME(1);
                 NEXT(2);
-            }
-            case BS: {
-                RESERVE(4);
+            case BS:
                 // B* c f g x = (c (f (g x)))
+                RESERVE(4);
                 ARG_4 = new_app(ARG_2,new_app(ARG_3,ARG_4));
                 WITH(ARG_1);
                 CONSUME(3);
                 NEXT(2);
-            }
-            case CP: {
-                Term_t* temp;
-                RESERVE(4);
+            case CP:
                 // C' c f g x = (c (f x) g)
+                RESERVE(4);
                 temp = ARG_4;
                 ARG_4 = ARG_3;
                 ARG_3 = new_app(ARG_2,temp);
                 WITH(ARG_1);
                 CONSUME(2);
                 NEXT(2);
-            }
-            case SP: {
-                Term_t* temp;
-                RESERVE(4);
+            case SP:
                 // S' c f g x = (c (f x) (g x))
+                RESERVE(4);
                 temp = ARG_4;
                 ARG_4 = new_app(ARG_3,ARG_4);
                 ARG_3 = new_app(ARG_2,temp);
                 WITH(ARG_1);
                 CONSUME(2);
                 NEXT(2);
-            }
+            case E:
+                RESERVE(2);
+                // E f x = f x where x is evaluated
+                if(ARG_2 == &HOLE) {
+                    assert(ret != NULL);
+                    ARG_2 = ret;
+                    ret = NULL;
+                } else {
+                    CALL(ARG_2);
+                }
+                SHOW_TASK();
+                WITH(ARG_1);
+                CONSUME(1);
+                NEXT(2);
 
-            #define BINOP(t1, t2, expr) \
+            #define BINOP(check1, check2, expr) \
                 RESERVE(2); \
-                EVAL(ARG_1, t1); \
-                EVAL(ARG_2, t2); \
+                EVAL(ARG_1, check1); \
+                EVAL(ARG_2, check2); \
                 SHOW_TASK(); \
                 WITH(expr); \
                 CONSUME(2)
             
             case ADDI:
-                BINOP(INT,INT,new_int(ARG_1->int_v + ARG_2->int_v));
+                RESERVE(2);
+                EVAL(ARG_1, ARG_1->tag == INT);
+                EVAL(ARG_2, ARG_2->tag == INT);
+                SHOW_TASK();
+                WITH(new_int(ARG_1->int_v + ARG_2->int_v));
+                CONSUME(2);
                 NEXT(2);
             case SUBI:
-                BINOP(INT,INT,new_int(ARG_1->int_v - ARG_2->int_v));
+                RESERVE(2);
+                EVAL(ARG_1, ARG_1->tag == INT);
+                EVAL(ARG_2, ARG_2->tag == INT);
+                SHOW_TASK();
+                WITH(new_int(ARG_1->int_v - ARG_2->int_v));
+                CONSUME(2);
                 NEXT(2);
             case MULI:
-                BINOP(INT,INT,new_int(ARG_1->int_v * ARG_2->int_v));
+                RESERVE(2);
+                EVAL(ARG_1, ARG_1->tag == INT);
+                EVAL(ARG_2, ARG_2->tag == INT);
+                SHOW_TASK();
+                WITH(new_int(ARG_1->int_v * ARG_2->int_v));
+                CONSUME(2);
                 NEXT(2);
             case DIVI:
-                BINOP(INT,INT,new_int(ARG_1->int_v / ARG_2->int_v));
+                RESERVE(2);
+                EVAL(ARG_1, ARG_1->tag == INT);
+                EVAL(ARG_2, ARG_2->tag == INT);
+                SHOW_TASK();
+                WITH(new_int(ARG_1->int_v / ARG_2->int_v));
+                CONSUME(2);
                 NEXT(2);
             case EQL:
-                BINOP(INT,INT,new_bool(ARG_1->int_v == ARG_2->int_v));
+                RESERVE(2);
+                EVAL(ARG_1, ARG_1->tag == INT);
+                EVAL(ARG_2, ARG_2->tag == INT);
+                SHOW_TASK();
+                WITH(new_bool(ARG_1->int_v == ARG_2->int_v));
+                CONSUME(2);
                 NEXT(2);
             case GRT:
-                BINOP(INT,INT,new_bool(ARG_1->int_v > ARG_2->int_v));
+                RESERVE(2);
+                EVAL(ARG_1, ARG_1->tag == INT);
+                EVAL(ARG_2, ARG_2->tag == INT);
+                SHOW_TASK();
+                WITH(new_bool(ARG_1->int_v > ARG_2->int_v));
+                CONSUME(2);
                 NEXT(2);
             case LSS:
-                BINOP(INT,INT,new_bool(ARG_1->int_v < ARG_2->int_v));
+                RESERVE(2);
+                EVAL(ARG_1, ARG_1->tag == INT);
+                EVAL(ARG_2, ARG_2->tag == INT);
+                SHOW_TASK();
+                WITH(new_int(ARG_1->int_v < ARG_2->int_v));
+                CONSUME(2);
                 NEXT(2);
             
             #undef BINOP
 
-            #define UNIOP(t1, expr) \
+            #define UNIOP(check1, expr) \
                 RESERVE(1); \
-                EVAL(ARG_1, t1); \
+                EVAL(ARG_1, check1); \
+                SHOW_TASK(); \
                 WITH(expr); \
                 CONSUME(1)
             
             case NEGI:
-                UNIOP(INT,new_int(ARG_1->int_v * -1));
+                RESERVE(1);
+                EVAL(ARG_1, ARG_1->tag == INT);
+                SHOW_TASK();
+                WITH(new_int(ARG_1->int_v * -1));
+                CONSUME(1);
                 NEXT(2);
             case NOT:
-                UNIOP(BOOL,new_int(!ARG_1->bool_v));
+                RESERVE(1);
+                EVAL(ARG_1, ARG_1->tag == BOOL);
+                SHOW_TASK();
+                WITH(new_bool(!ARG_1->bool_v));
+                CONSUME(1);
                 NEXT(2);
             
+            #undef BINOP
+
             case IF:
                 RESERVE(3);
-                EVAL(ARG_1, BOOL);
+                EVAL(ARG_1, ARG_1->tag == BOOL);
                 WITH(ARG_1->bool_v ? ARG_2 : ARG_3);
                 CONSUME(3);
                 NEXT(3);
-
             case PRINTI:
                 RESERVE(2);
-                EVAL(ARG_1, INT);
+                EVAL(ARG_1, ARG_1->tag == INT);
                 printf("printi: %ld\n",ARG_1->int_v);
                 WITH(ARG_2);
+                CONSUME(2);
                 NEXT(5);
             /*
             case NEWBOX:
@@ -313,13 +376,13 @@ bool eval(Task_t* task, int_t timeslice) {
                 ATOMIC_UNLOCK();
                 NEXT(3);
             }
-            */
             case FORK: // FORK t k
                 RESERVE(2);
                 send_task(new_task(ARG_1));
                 WITH(ARG_2);
                 CONSUME(2);
                 NEXT(3);
+            */
             case EXIT:
                 task->stack_base = stack_base;
                 task->stack_ceil = stack_ceil;

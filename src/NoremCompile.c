@@ -37,6 +37,7 @@ bool is_free_in(symb_t x, Term_t* term) {
 }
 
 Term_t* term_compile(Term_t* term) {
+    LOG("Compiling...\n");
     assert(term != NULL);
     if(is_var(term)) {
         return term;
@@ -75,6 +76,7 @@ Term_t* term_compile(Term_t* term) {
 }
 
 Term_t* term_opt(Term_t* term) {
+    LOG("Optimizing...\n");
     // (S arg1 arg2)
     Term_t *arg1, *arg2, *p, *q, *r;
     if(term->tag == APP && term->t1->tag == APP
@@ -128,13 +130,7 @@ Term_t* term_opt(Term_t* term) {
             }
         }
     } else if(term->tag == APP) {
-        Term_t* x1 = term_opt(term->t1);
-        Term_t* x2 = term_opt(term->t2);
-        if(x1 == term->t1 && x2 == term->t2) {
-            return term;
-        } else {
-            return term_opt(APP2(x1,x2));
-        }
+        return APP2(term_opt(term->t1),term_opt(term->t2));
     } else {
         return term;
     }
@@ -160,7 +156,7 @@ bool symb_list_lookup(symb_t symb, Symb_List_t* list) {
 }
 
 Term_t* term_link_helper(Term_t* term, Symb_List_t* list) {
-    PANIC("static linking disabled");
+    PANIC("static linking disabled\n");
     if(term == NULL) {
         PANIC("NULL!\n");
     } else if(is_var(term)) {
@@ -193,7 +189,7 @@ Term_t* term_link_helper(Term_t* term, Symb_List_t* list) {
 }
 
 Term_t* term_link(Term_t* term) {
-    PANIC("static linking disabled");
+    PANIC("static linking disabled\n");
     return term_link_helper(term, NULL);
 }
 
