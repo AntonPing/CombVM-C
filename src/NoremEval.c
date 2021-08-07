@@ -1,6 +1,6 @@
 #include "Norem.h"
 // FLAGS
-#define DEBUG_TASK
+//#define DEBUG_TASK
 
 // TASK
 Term_t FRAME;
@@ -128,7 +128,7 @@ bool eval(Task_t* task, int_t timeslice) {
     eval_loop: // while step > 0 run the task
     if(step > 0) {
         assert(with != NULL);
-
+        SHOW_TASK();
         switch(with->tag) {
             Term_t* temp;
             case APP:
@@ -314,7 +314,7 @@ bool eval(Task_t* task, int_t timeslice) {
                 RESERVE(2);
                 EVAL(ARG_1, ARG_1->tag == INT);
                 printf("printi: %ld\n",ARG_1->int_v);
-                show_heap_info();
+                SHOW_TASK();
                 WITH(ARG_2);
                 CONSUME(2);
                 NEXT(5);
@@ -384,6 +384,7 @@ bool eval(Task_t* task, int_t timeslice) {
                     PANIC("Cannot apply data to data!\n");
                 }
             default:
+                show_term(with); printf("\n");
                 PANIC("Unknown tag while evaling term! %d\n", with->tag);
         }
     }

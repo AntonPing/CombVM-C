@@ -1,7 +1,7 @@
 #include "Norem.h"
 #include <editline/readline.h>
 
-static Dict_t* root = NULL;
+Dict_t* root = NULL;
 
 Dict_t* dict_get(symb_t key) {
     Dict_t* ptr = root;

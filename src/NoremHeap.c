@@ -1,11 +1,11 @@
 #include "Norem.h"
-#define POOL_SIZE 65536
-#define BUFFER_SIZE 1000
+#define HEAP_SIZE 1024
+#define BUFFER_SIZE 512
 
-Term_t heap_base_a[POOL_SIZE];
-Term_t* heap_ceil_a = &heap_base_a[POOL_SIZE - BUFFER_SIZE];
-Term_t heap_base_b[POOL_SIZE];
-Term_t* heap_ceil_b = &heap_base_b[POOL_SIZE - BUFFER_SIZE];
+Term_t heap_base_a[HEAP_SIZE];
+Term_t* heap_ceil_a = &heap_base_a[HEAP_SIZE - BUFFER_SIZE];
+Term_t heap_base_b[HEAP_SIZE];
+Term_t* heap_ceil_b = &heap_base_b[HEAP_SIZE - BUFFER_SIZE];
 bool from_a_to_b = true;
 
 Term_t* heap_ptr;
@@ -21,42 +21,17 @@ void heap_init() {
     LOG("finish\n");
 }
 
-void show_heap_info() {
-    int used, cap;
-    if(from_a_to_b) {
-        used = heap_ptr - &heap_base_a[0];
-        cap = &heap_base_a[POOL_SIZE] - heap_ptr;
-    } else {
-        used = heap_ptr - &heap_base_b[0];
-        cap = &heap_base_b[POOL_SIZE] - heap_ptr;
-    }
-    printf("heap info: used %d, cap %d.\n",used,cap);
-    if(from_a_to_b) {
-        printf("using A heap, ");
-    } else {
-        printf("using B heap, ");
-    }
-    printf("stop_the_world = %d, stopped num = %d.\n",
-                stop_the_world, stopped_num);
-}
-
 Term_t* copy_term(Term_t* term) {
+    LOG("copy %p.", term);
     if(term == NULL) {
-        printf("copy: NULL\n");
         return term;
     }
     if(term == &FRAME) {
-        printf("copy: &FRAME\n");
         return term;
     }
     if(term == &HOLE) {
-        printf("copy: &HOLE\n");
         return term;
     }
-
-    printf("copy:");
-    show_term(term);
-    printf("\n");
 
     switch(term->tag) {
         case S:
@@ -105,6 +80,35 @@ Term_t* copy_term(Term_t* term) {
     }
 }
 
+// from Norem.c
+extern Dict_t* root;
+void dict_gc() {
+    Dict_t* ptr = root;
+    while(ptr != NULL) {
+        LOG("gc dict: %s\n",ptr->name);
+        ptr->raw = copy_term(ptr->raw);
+        ptr->linked = copy_term(ptr->linked);
+        ptr->compiled = copy_term(ptr->compiled);
+        ptr = ptr->next;
+    }
+}
+
+void show_heap_info() {
+    #ifdef DEBUG
+        int used, cap;
+        if(from_a_to_b) {
+            used = heap_ptr - &heap_base_a[0];
+            cap = &heap_base_a[HEAP_SIZE] - heap_ptr;
+        } else {
+            used = heap_ptr - &heap_base_b[0];
+            cap = &heap_base_b[HEAP_SIZE] - heap_ptr;
+        }
+        LOG("heap info: used %d, cap %d.\n", used, cap);
+        LOG("using %c heap, stop_the_world = %d, stopped num = %d.\n",
+                    from_a_to_b ? 'A' : 'B', stop_the_world, stopped_num);
+    #endif
+}
+
 extern Task_t* *task_queue_base;
 extern Task_t* *task_queue_ceil;
 extern Task_t* *task_head;
@@ -112,9 +116,9 @@ extern Task_t* *task_tail;
 
 void run_gc() {
     // TODO: stop the world
-    puts("gc start!");
+    
+    LOG("gc start!");
     show_heap_info();
-    sleep(5);
 
     if(from_a_to_b) {
         from_a_to_b = false;
@@ -123,13 +127,12 @@ void run_gc() {
         from_a_to_b = true;
         heap_ptr = &heap_base_a[0];
     }
-
-    printf("head %p, tail %p\n", task_head, task_tail);
     Task_t** task_ptr = task_head + 1;
-    printf("ptr %p\n", task_ptr);
+
+    LOG("head %p, tail %p, ptr %p\n", task_head, task_tail, task_ptr);
     
     while(task_ptr != task_tail) {
-        puts("collect task");
+        LOG("collecting task...");
         Task_t* task = *task_ptr;
         Term_t* *base = task->stack_base;
         Term_t* *sp = task->sp;
@@ -145,20 +148,36 @@ void run_gc() {
         }
     }
 
-    puts("gc over!");
+    dict_gc();
+
+    if(from_a_to_b) {
+        for(int i=0; i<HEAP_SIZE; i++) {
+            heap_base_b[i].tag = NIL;
+            heap_base_b[i].t1 = NULL;
+            heap_base_b[i].t2 = NULL;
+        }
+    } else {
+        for(int i=0; i<HEAP_SIZE; i++) {
+            heap_base_a[i].tag = NIL;
+            heap_base_a[i].t1 = NULL;
+            heap_base_a[i].t2 = NULL;
+        }
+    }
+
+    LOG("gc over!");
     show_heap_info();
     sleep(5);
 }
 
 Term_t* alloc_term() {
     if(from_a_to_b) {
-        assert(heap_ptr >= heap_base_a && heap_ptr < heap_base_a + POOL_SIZE);
+        assert(heap_ptr >= heap_base_a && heap_ptr < heap_base_a + HEAP_SIZE);
         if(heap_ptr >= heap_ceil_a) {
             stop_the_world = true;
         }
         return heap_ptr++;
     } else {
-        assert(heap_ptr >= heap_base_b && heap_ptr < heap_base_b + POOL_SIZE);
+        assert(heap_ptr >= heap_base_b && heap_ptr < heap_base_b + HEAP_SIZE);
         if(heap_ptr >= heap_ceil_b) {
             stop_the_world = true;
         }

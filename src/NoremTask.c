@@ -110,7 +110,7 @@ void* thread_loop() {
         wait_for_gc();
         task = fetch_task();
         if(task == NULL) {
-            sleep(1); // sleep and wait for new task
+            for(int i=0; i<100; i++) {;}; // sleep and wait for new task
         } else {
             if(eval(task, 1024)) { // run the timeslice
                 // send back the task if it was interrupted

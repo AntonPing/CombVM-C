@@ -30,7 +30,6 @@ typedef char* string_t;
 #define LOG(...)
 #endif
 
-
 #define PANIC(...) do{ \
     fprintf(stderr, "[PANIC]%s %s(Line %d): ",__FILE__,__FUNCTION__,__LINE__); \
     fprintf(stderr, __VA_ARGS__); \
@@ -122,6 +121,7 @@ Term_t* term_opt(Term_t* term);
 Term_t* term_link(Term_t* term);
 
 // NoremHeap.c
+Term_t* copy_term(Term_t* term);
 /*
 Term_t* gc_refer(Term_t* term);
 void gc_deref(Term_t* term);
