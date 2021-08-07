@@ -39,6 +39,8 @@ typedef char* string_t;
 } while(0)
 
 
+#define STACK_SIZE 32
+
 typedef enum tag_t {
     INT, REAL, CHAR, BOOL, SYMB,
     APP, LAMB, FUNC,
@@ -92,7 +94,6 @@ typedef struct Task_t {
     Term_t* ret;
 } Task_t;
 
-
 typedef struct Dict_t {
     symb_t name;
     Term_t* raw;
@@ -103,7 +104,6 @@ typedef struct Dict_t {
 } Dict_t;
 
 // Norem.c
-extern Term_t sing[256];
 Dict_t* dict_get(symb_t key);
 
 // NoremShow.c
@@ -113,6 +113,7 @@ void show_dict_raw(Dict_t* dict);
 void show_dict_compiled(Dict_t* dict);
 
 // NoremCompile.c
+extern Term_t sing[256]; // Global singletons
 bool is_app(Term_t* term);
 bool is_lamb(Term_t* term);
 bool is_var(Term_t* term);
@@ -138,26 +139,34 @@ Term_t* new_symb(symb_t value);
 Term_t* new_lamb(symb_t x, Term_t* t);
 Term_t* new_box();
 //Term_t* new_thunk(Term_t* t);
+void show_heap_info();
 
-// NoremParse.c
-bool is_space(char_t c);
-bool term_parse(char_t* str, Term_t** ret);
-bool definition(char_t* str, symb_t* key, Term_t** value);
-
-// NoremEval.c
-Task_t* *task_queue_base;
-Task_t* *task_queue_ceil;
-Task_t* *task_head;
-Task_t* *task_tail;
-bool eval(Task_t* task, int_t timeslice);
-Task_t* new_task(Term_t* with);
-void send_task(Task_t* task);
+// NoremTask.c
+extern volatile bool stop_the_world;
+extern volatile _Atomic int stopped_num;
 void task_module_init();
 void task_module_exit();
+Task_t* fetch_task();
+void send_task(Task_t* task);
+Task_t* new_task(Term_t* with);
+void show_task(Task_t* task);
+
+// NoremEval.c
+extern Term_t FRAME;
+extern Term_t HOLE;
+bool eval(Task_t* task, int_t timeslice);
 
 // NoremSymb.c
 symb_t to_symb(char_t* str);
 string_t substr(string_t str, size_t n);
 string_t slice(char_t* start, char_t* end);
+
+
+/*
+// NoremParse.c
+bool is_space(char_t c);
+bool term_parse(char_t* str, Term_t** ret);
+bool definition(char_t* str, symb_t* key, Term_t** value);
+*/
 
 #endif

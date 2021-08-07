@@ -3,7 +3,6 @@
 #define DEBUG_TASK
 
 // TASK
-#define STACK_SIZE 32
 Term_t FRAME;
 Term_t HOLE;
 
@@ -15,36 +14,6 @@ atomic_flag atomic_lock = ATOMIC_FLAG_INIT;
 #define ATOMIC_UNLOCK() \
     atomic_flag_clear(&atomic_lock)
 
-Task_t* new_task(Term_t* with) {
-    Task_t* task = malloc(sizeof(Task_t));
-    Term_t* *stack = malloc(sizeof(Term_t*) * STACK_SIZE);
-    stack[0] = &sing[EXIT];
-    stack[1] = &FRAME;
-    stack[2] = with;
-    task->stack_base = stack;
-    task->stack_ceil = &stack[STACK_SIZE - 1];
-    task->sp = &stack[2];
-    task->ret = NULL;
-    return task;
-}
-
-void show_task(Task_t* task) {
-    Term_t* *stack_base = task->stack_base;
-    Term_t* *sp = task->sp;
-    printf("# ret = "); show_term(task->ret); printf("\n");
-    puts("-------------------------");
-    for(Term_t* *ptr = sp; ptr >= stack_base; ptr --) {
-        assert(*ptr != NULL);
-        if(*ptr == &FRAME) {
-            puts("-------------------------");
-        } else if(*ptr == &HOLE) {
-            puts("| &HOLE");
-        } else {
-            printf("| "); show_term(*ptr); printf("\n");
-        }
-    }
-    puts("-------------------------");
-}
 
 #ifdef DEBUG_TASK
 	#define SHOW_TASK() do { \
@@ -62,6 +31,7 @@ void show_task(Task_t* task) {
 
 
 void stack_extend(Term_t*** base, Term_t*** ceil, Term_t*** sp) {
+    PANIC("stack extend disabled!\n");
     size_t new_size = (*ceil - *base + 1) * 2;
     Term_t* *new_base = realloc(*base, new_size * sizeof(Term_t*));
     if(new_base == NULL) {
@@ -142,7 +112,7 @@ void stack_extend(Term_t*** base, Term_t*** ceil, Term_t*** sp) {
 } while(0)
 
 bool eval(Task_t* task, int_t timeslice) {
-    show_task(task);
+    //show_task(task);
 
     // load the task
     Term_t* *stack_base = task->stack_base;
@@ -235,6 +205,7 @@ bool eval(Task_t* task, int_t timeslice) {
                     ARG_2 = ret;
                     ret = NULL;
                 } else {
+                    SHOW_TASK();
                     CALL(ARG_2);
                 }
                 SHOW_TASK();
@@ -343,6 +314,7 @@ bool eval(Task_t* task, int_t timeslice) {
                 RESERVE(2);
                 EVAL(ARG_1, ARG_1->tag == INT);
                 printf("printi: %ld\n",ARG_1->int_v);
+                show_heap_info();
                 WITH(ARG_2);
                 CONSUME(2);
                 NEXT(5);
@@ -408,11 +380,8 @@ bool eval(Task_t* task, int_t timeslice) {
                 if(sp[0] == &FRAME) {
                     RET();
                 } else {
-                    printf("DATA1: ");
-                    show_term(with);
-                    printf("\nDATA2:");
-                    show_term(sp[0]);
-                    PANIC("\nCannot apply data to data!\n");
+                    SHOW_TASK();
+                    PANIC("Cannot apply data to data!\n");
                 }
             default:
                 PANIC("Unknown tag while evaling term! %d\n", with->tag);
@@ -425,105 +394,4 @@ bool eval(Task_t* task, int_t timeslice) {
     task->sp = sp;
     task->ret = ret;
     return true;
-}
-
-/////////////////////////
-//    MULTITASKING     //
-/////////////////////////
-
-#define NUM_THREADS 0
-#define TASK_QUEUE_LEN 256
-pthread_t thread_pool[NUM_THREADS];
-Task_t* *task_queue_base;
-Task_t* *task_queue_ceil;
-Task_t* *task_head;
-Task_t* *task_tail;
-// task_head + 1 == task_tail
-// when and only when there is no task
-// task_head == task_tail
-// when and only when task full 
-
-atomic_flag task_pool_lock = ATOMIC_FLAG_INIT;
-
-#define task_pool_lock() \
-    while(atomic_flag_test_and_set(&task_pool_lock)){}
-
-#define task_pool_unlock() \
-    atomic_flag_clear(&task_pool_lock)
-
-void* thread_loop();
-void task_module_init() {
-    task_queue_base = malloc(sizeof(Task_t*) * TASK_QUEUE_LEN);
-    task_queue_ceil = &task_queue_base[TASK_QUEUE_LEN - 1];
-    task_head = &task_queue_base[0];
-    task_tail = &task_queue_base[1];
-    for(int i=0; i<NUM_THREADS; i++){
-        //参数依次是：创建的线程id，线程参数，调用的函数，传入的函数参数
-        int ret = pthread_create(&thread_pool[i], NULL, thread_loop, NULL);
-        if (ret != 0) {
-            PANIC("pthread_create error: %d\n", ret);
-        }
-    }
-}
-
-void task_module_exit() {
-    for(int i=0; i<NUM_THREADS; i++){
-        pthread_cancel(thread_pool[i]);
-    }
-}
-
-Task_t* fetch_task() {
-    task_pool_lock();
-    Task_t* result;
-    if(task_head + 1 == task_tail) {
-        result = NULL;
-    } else if(task_head == task_queue_ceil
-            && task_tail == task_queue_base) {
-        result = NULL;
-    } else {
-        if(task_head == task_queue_ceil) {
-            task_head = task_queue_base;
-        } else {
-            task_head ++;
-        }
-        result = *task_head;
-    }
-    task_pool_unlock();
-    return result;
-}
-
-void send_task(Task_t* task){
-    task_pool_lock();
-    if(task_head == task_tail) {
-        PANIC("task overflow! MAX=%d\n",TASK_QUEUE_LEN);
-    } else {
-        *task_tail = task;
-        if(task_tail == task_queue_ceil) {
-            task_tail = task_queue_base;
-        } else {
-            task_tail ++;
-        }
-    }
-    task_pool_unlock();
-}
-
-void* thread_loop(){
-    while(true) {
-        Task_t* task = fetch_task();
-        if(task == NULL) {
-            sleep(1); // sleep and wait for new task
-        } else {
-            if(eval(task, 256)) { // run the timeslice
-                // send back the task if it was interrupted
-                send_task(task); 
-            } else {
-                // delete the task if it was finished
-                printf("task completed! ret = ");
-                show_term(task->ret);
-                printf("\n");
-                free(task);
-                //LOG("task completed!");
-            }
-        }
-    }
 }

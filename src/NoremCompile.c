@@ -192,5 +192,3 @@ Term_t* term_link(Term_t* term) {
     PANIC("static linking disabled\n");
     return term_link_helper(term, NULL);
 }
-
-

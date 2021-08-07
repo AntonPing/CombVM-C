@@ -58,6 +58,9 @@ void dict_update(symb_t key, string_t text, Term_t* value) {
 
 void command(string_t input);
 
+// definition: from NoremParser.c
+extern bool definition(char_t* str, symb_t* key, Term_t** value);
+
 void command_define(string_t text, bool update) {
     symb_t key;
     Term_t* value;
@@ -80,6 +83,9 @@ void command_relink() {
         ptr = ptr->next;
     }
 }
+
+// is_space: from NoremParser.c
+extern bool is_space(char_t c);
 
 void command_load(string_t path) {
     FILE *fp = NULL;
@@ -141,7 +147,12 @@ void command(string_t input) {
     }
 }
 
+// heap_init: from NoremHeap.c
 extern void heap_init();
+// eval: from NoremEval.c
+extern bool eval(Task_t* task, int_t timeslice);
+// term_parse: from NoremParser.c
+extern bool term_parse(char_t* str, Term_t** ret);
 
 void repl() {
     // Print Version and Exit Information
@@ -173,9 +184,14 @@ void repl() {
                 //term = term_link(term);
                 task = new_task(term);
 
-                eval_start:
-                if(eval(task, 2048)) {
+                //eval_start:
+                if(eval(task, 1024)) {
+                    send_task(task);
+                    /*
                     char yes_or_no;
+                    // One-Thread-Mode
+                    // goto eval_start;
+                    //
                     puts("This task seems doesn't terminate, do you want to "
                         "dumped it into the thread queue? (y/n)");
                     while(true) {
@@ -191,6 +207,7 @@ void repl() {
                             continue;
                         }
                     }
+                    */
                 } else {
                     show_term(task->ret);
                     printf("\n");
